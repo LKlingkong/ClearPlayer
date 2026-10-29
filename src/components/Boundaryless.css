@@ -1,0 +1,111 @@
+:root{--window-inset:0px;--dock-space:128px}
+html[data-desktop=true]{--window-inset:32px}
+.window-chrome{height:32px;position:fixed;inset:0 0 auto;z-index:90;display:flex;align-items:stretch;color:var(--muted);user-select:none}
+.window-drag-area{flex:1;-webkit-app-region:drag;display:flex;align-items:center;gap:15px;padding-left:24px;font-size:8px;letter-spacing:2.5px}
+.window-drag-area>span:last-child{font-size:8px;letter-spacing:.8px;opacity:.55}
+.window-controls{display:flex;-webkit-app-region:no-drag}
+.window-controls>button{width:44px;display:grid;place-items:center;color:var(--secondary)}
+.window-controls>button:hover{background:var(--hover);color:var(--text)}
+.window-controls>button:last-child:hover{background:#c64d60;color:#fff}
+.space-atmosphere{position:fixed;inset:-15%;z-index:0;pointer-events:none;opacity:.085;filter:blur(110px);overflow:hidden;transform:scale(1.08)}
+.space-atmosphere>.artwork{object-fit:cover}
+.app-shell.library-view{height:100dvh;min-height:0;overflow:hidden;padding-top:var(--window-inset);padding-bottom:var(--dock-space);background:radial-gradient(ellipse at 70% 8%,color-mix(in srgb,var(--accent) 5%,transparent),transparent 55%),var(--bg)}
+.library-view .main-content{height:100%;min-height:0;display:flex;flex-direction:column;position:relative;z-index:1}
+.library-view .topbar{flex-shrink:0;height:66px;min-height:66px;border:0;margin:0 46px}
+.library-view .page-content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;max-height:none;width:100%;max-width:1440px;margin:0 auto;padding:24px 46px 52px;overscroll-behavior-y:auto;scrollbar-gutter:stable}
+.library-view .track-list{max-height:none;min-height:0;overflow:visible;overscroll-behavior:auto;scrollbar-gutter:auto;border:0}
+.library-view .track-table-head{position:sticky;top:-24px;z-index:2;background:color-mix(in srgb,var(--bg) 93%,transparent);backdrop-filter:blur(15px);min-height:42px;border:0}
+.library-view .track-row{min-height:67px;border-radius:0;padding:12px 10px;background:transparent;border:0}
+.library-view .track-row:hover{background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.library-view .track-row.current-track{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 8%,transparent),transparent 85%)}
+.library-view .track-title strong{font-size:13px;line-height:1.5}
+.library-view .track-title small{font-size:10px;margin-top:3px}
+.library-view .track-title>.artwork{width:38px;height:38px;border-radius:6px;box-shadow:0 3px 10px #0001}
+.library-view .track-album,.library-view .track-duration{font-size:10px}
+.library-view .track-row:last-child{margin-bottom:10px}
+.library-view .library-section{margin-top:20px;padding-bottom:12px}
+.library-view .library-heading{margin-bottom:10px;min-height:30px}
+.library-view .library-heading h2{font-size:11px;font-weight:400;letter-spacing:1px;color:var(--muted);gap:12px}
+.library-view .library-heading h2>span{background:none;padding:0;color:var(--secondary)}
+.library-view .library-heading p{display:none}
+.library-view .library-foot{margin-top:25px;opacity:.6}
+.library-view .page-heading{margin-bottom:20px;align-items:center}
+.library-view .page-heading h1{font-family:'STZhongsong','Songti SC','SimSun',serif;font-size:clamp(32px,3.1vw,48px);letter-spacing:1px;font-weight:500;margin:10px 0 6px;line-height:1.35}
+.library-view .page-heading p{font-size:11px;line-height:1.7;letter-spacing:1px}
+.library-view .eyebrow{font-size:7px;letter-spacing:2.4px;opacity:.7}
+.library-view .import-main{background:transparent!important;color:var(--accent)!important;box-shadow:none;border:0;border-bottom:1px solid var(--line);border-radius:0;min-height:34px;padding:0 0 7px;gap:9px}
+.library-view .import-main:hover{border-color:var(--accent)}
+.library-view .primary-button>span{border-left:0;opacity:.4;font-size:8px;letter-spacing:1px}
+.library-view .workspace-tabs{border:0;margin-bottom:15px;height:32px}
+.library-view .workspace-tabs>.active{border:0;height:32px;font-size:12px}
+.library-view .tab-dot{height:4px;width:4px;margin-top:6px}
+.library-view .now-playing{border:0!important;border-radius:0;background:none!important;box-shadow:none;padding:7px 0 12px;min-height:62px;gap:13px}
+.library-view .cover-stage,.library-view .cover-frame{width:42px;height:42px;border-radius:50%}
+.library-view .track-meta h2{font-size:13px;margin-bottom:5px;font-weight:400}
+.library-view .track-meta p{font-size:9px}
+.library-view .track-meta .icon-button{margin-left:auto}
+.library-view .open-record-button{border:0;border-radius:0;color:var(--muted);font-size:9px;padding:8px 0 8px 15px}
+.library-view .open-record-button:hover{background:none;color:var(--accent)}
+.library-view .sidebar{top:var(--window-inset);bottom:var(--dock-space);border:0;background:transparent!important;box-shadow:none!important;padding-top:31px;padding-bottom:14px}
+.library-view .sidebar .brand{margin-bottom:34px;gap:11px}
+.library-view .brand-mark{background:none!important;box-shadow:none!important;color:var(--accent)!important;width:31px;height:38px}
+.library-view .brand-mark>svg{width:29px;height:29px}
+.library-view .brand-name{font-size:23px;letter-spacing:3px}
+.library-view .sidebar nav{gap:6px}
+.library-view .sidebar nav button{font-size:13px;min-height:42px;border-radius:0;background:none!important;position:relative}
+.library-view .sidebar nav button.nav-active{color:var(--accent)}
+.library-view .sidebar nav button.nav-active::before{height:4px;width:4px;left:0;top:20px;border-radius:50%;box-shadow:0 0 12px color-mix(in srgb,var(--accent) 40%,transparent)}
+.library-view .sidebar nav button:hover{color:var(--text);translate:2px 0}
+.library-view .sidebar-divider{height:0;margin:22px 0 0}
+.library-view .local-note{border:0;background:none!important;box-shadow:none;padding:0 15px;margin:0 0 15px}
+.library-view .local-note h3,.library-view .local-note p,.library-view .note-icon{display:none}
+.library-view .local-status{font-size:8px;color:var(--muted);opacity:.7}
+.library-view .appearance-link{border-radius:0;background:none!important;margin-bottom:7px}
+.library-view .sidebar-version{font-size:6px;opacity:.4}
+.library-view .collection-heading{font-size:8px;letter-spacing:1.5px}
+.library-view .collection>span{background:none;color:var(--muted);width:24px}
+.library-view .collection>div{font-size:10px;color:var(--secondary)}
+.library-view .collection small{font-size:8px;opacity:.6}
+.library-view .search-box{border:0;background:transparent;border-bottom:1px solid var(--line);border-radius:0;width:210px;padding:8px 0}
+.library-view .avatar,.library-view .topbar-rule{display:none}
+.library-view .topbar-actions{gap:22px}
+.library-view .import-dropzone{border:0;border-radius:0;background:none;min-height:160px;justify-content:center;padding:26px}
+.library-view .import-dropzone:hover{background:radial-gradient(ellipse at center,var(--hover),transparent 70%)}
+.library-view .upload-icon{background:none;width:36px;color:var(--muted)}
+.library-view .import-dropzone h3{font-family:'STZhongsong','SimSun',serif;font-size:21px}
+.library-view .file-types{display:none}
+.library-view .online-source-card,.library-view .online-task{border:0;box-shadow:none;background:transparent}
+.app-shell .player-bar,.app-shell.vinyl-view:has(.lyric-stage) .player-bar{inset:auto 24px 16px;width:min(1220px,calc(100% - 48px));height:94px;margin:0 auto;border:0;border-radius:20px;background:color-mix(in srgb,var(--bg) 84%,transparent);backdrop-filter:blur(28px);box-shadow:0 12px 44px #00000012;padding:0 24px}
+.app-shell .mini-track>.artwork{width:44px;height:44px;border-radius:50%}
+.app-shell .extras-divider{background:none;width:0;margin:0 7px}
+.app-shell .player-bar input[type=range]{height:2px}
+.app-shell .mini-info strong{font-size:12px}
+.app-shell .transport-controls{margin-bottom:9px}
+.app-shell .play-button{width:36px;height:36px;box-shadow:none}
+.app-shell .queue-panel{bottom:125px;border:0;border-radius:14px;box-shadow:0 15px 60px #0003;max-height:calc(100dvh - 180px);display:flex;flex-direction:column;backdrop-filter:blur(25px)}
+.app-shell .queue-list{min-height:0;max-height:min(440px,calc(100dvh - 300px));overflow-y:auto}
+.app-shell .queue-panel .panel-heading{flex-shrink:0}
+.app-shell .queue-footer{flex-shrink:0}
+.app-shell.vinyl-view{padding-top:var(--window-inset);padding-bottom:var(--dock-space)}
+html[data-theme] .app-shell.vinyl-view .vinyl-player:not(.lyric-stage){background:transparent;height:calc(100dvh - var(--window-inset) - var(--dock-space))}
+.app-shell .vinyl-player.lyric-stage{height:calc(100dvh - var(--window-inset))}
+.vinyl-player .vinyl-record{background:repeating-radial-gradient(circle,#ffffff09 0px,#0000000c 1px,transparent 2px,transparent 4px),conic-gradient(from 30deg,#10191d,#374549,#10181d,#455354,#152024);box-shadow:inset 0 0 0 2px #c4ece211,0 15px 50px #0002}
+html[data-theme=light] .vinyl-player .vinyl-record{background:repeating-radial-gradient(circle,#ffffff0b 0px,#00000014 1px,transparent 2px,transparent 4px),conic-gradient(from 30deg,#1f292c,#566064,#1a2529,#657171,#28343a)}
+html[data-theme=stage] .vinyl-player .vinyl-record{background:repeating-radial-gradient(circle,#ffffff09 0px,#0000000f 1px,transparent 2px,transparent 4px),conic-gradient(from 30deg,#211e29,#52485c,#1c1b25,#62556e,#2b2434)}
+.vinyl-player .vinyl-label{inset:23%;border:0;display:block;padding:0;border-radius:50%;pointer-events:auto;cursor:pointer;box-shadow:0 0 0 4px #00000029,0 0 0 6px #ffffff08;overflow:hidden}
+.vinyl-player .vinyl-label:disabled{opacity:1;cursor:default}
+.vinyl-player .vinyl-label>.artwork{width:100%;height:100%;filter:none;object-fit:cover}
+.vinyl-player .vinyl-label:focus-visible{outline:3px solid var(--accent);outline-offset:8px}
+.vinyl-player .vinyl-sheen,.vinyl-player .vinyl-spindle{pointer-events:none}
+.vinyl-missing-art{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:13px;background:radial-gradient(ellipse at 30% 20%,#4a666a,#23383d 60%,#13252b);color:#b8ceca}
+.vinyl-missing-art>span{font-size:clamp(12px,1.6vw,21px);letter-spacing:2px;max-width:75%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vinyl-missing-art>small{font-size:9px;letter-spacing:1px;opacity:.5}
+.vinyl-missing-art>svg{opacity:.4}
+.app-shell .player-layout-switch{background:none;border:0;backdrop-filter:none;border-radius:0;gap:10px;padding:0}
+.app-shell .player-layout-switch>button{background:none;border-radius:0;padding:7px 0;margin:0 5px;color:var(--muted)}
+.app-shell .player-layout-switch>button[aria-pressed=true]{color:var(--accent);background:none}
+.app-shell .vinyl-view-actions>.icon-button{background:none;border:0}
+.app-shell .vinyl-wordmark>span{border:0}
+@media(max-width:1100px){.library-view .topbar{margin:0 30px}.library-view .page-content{padding:20px 30px 42px}.library-view .track-table-head{top:-20px}.library-view .track-title strong{font-size:12px}.library-view .sidebar .brand{margin-bottom:27px}.app-shell .player-bar{padding:0 20px}}
+@media(max-width:760px){:root{--dock-space:145px}.library-view .topbar{height:58px;min-height:58px;margin:0 20px}.library-view .page-content{padding:22px 20px 38px}.library-view .track-table-head{top:-22px}.library-view .page-heading h1{font-size:33px}.library-view .page-heading p{font-size:10px}.library-view .eyebrow{font-size:6px}.library-view .sidebar{top:var(--window-inset);bottom:0;background:var(--bg)!important}.library-view .search-box{width:160px}.library-view .topbar-actions{gap:12px}.library-view .now-playing{min-height:55px;padding:5px 0 10px;gap:10px}.library-view .cover-stage,.library-view .cover-frame{height:35px;width:35px}.library-view .track-meta h2{font-size:12px}.library-view .track-meta p{font-size:8px}.library-view .library-section{margin-top:15px}.library-view .track-title strong{font-size:11px}.library-view .track-title small{font-size:8px}.library-view .track-row{min-height:64px}.library-view .track-title>.artwork{width:33px;height:33px}.app-shell .player-bar,.app-shell.vinyl-view:has(.lyric-stage) .player-bar{inset:auto 8px 8px;width:calc(100% - 16px);height:121px;border:0;border-radius:17px;padding:10px 13px 12px;grid-template-columns:1fr 145px}.app-shell .mini-track>.artwork{width:33px;height:33px}.app-shell .mini-info strong{font-size:10px}.app-shell .play-button{width:33px;height:33px}.app-shell .queue-panel{bottom:141px}.app-shell .window-drag-area{padding-left:16px}.window-drag-area>span:last-child{display:none}.window-controls>button{width:39px}.vinyl-missing-art>small{font-size:7px}.vinyl-missing-art>svg{width:26px}.app-shell .player-layout-switch{gap:4px}.app-shell .player-layout-switch>button{font-size:8px;margin:0 3px;gap:4px}}
+@media(prefers-reduced-motion:reduce){.library-view .sidebar nav button:hover{translate:none}}

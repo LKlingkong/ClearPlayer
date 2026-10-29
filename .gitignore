@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.npm-cache/
+*.tsbuildinfo
+screenshots/
+downloads/
+.verification/
+.venv/
+__pycache__/
+
+desktop-app/
+ClearPlayer.exe
+
+# Local credentials and editor state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.idea/
+.vscode/
+*.log
+
+# Original reference binaries and archives (licenses are kept in licenses/)
+/LenoMusic.exe
+/LenoMusic-main.zip

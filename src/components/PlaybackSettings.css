@@ -1,0 +1,8 @@
+.settings-body{padding:18px 20px 20px}
+.settings-label{font-size:9px;color:var(--muted)}
+.mode-options{display:flex;gap:6px;margin-top:12px}
+.mode-options button{display:flex;flex:1;align-items:center;justify-content:center;gap:4px;font-size:9px;padding:9px 4px;border-radius:5px;border:1px solid var(--line);white-space:nowrap}
+.mode-options button.selected{color:var(--accent);background:var(--active);border-color:var(--accent)}
+.settings-volume{display:flex;align-items:center;gap:10px;margin-top:23px}
+.settings-volume input{flex:1;min-width:0}
+.settings-volume>span{font-size:9px;color:var(--muted);width:29px;text-align:right;font-variant-numeric:tabular-nums}

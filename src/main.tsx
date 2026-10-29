@@ -1,0 +1,10 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles.css';
+import './components/PlaybackSettings.css';
+import './components/PlayerExperience.css';
+import './components/LyricStage.css';
+import './components/Boundaryless.css';
+if(window.clearDesktop)document.documentElement.dataset.desktop='true';
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

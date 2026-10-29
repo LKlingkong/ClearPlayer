@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+<defs>
+ <linearGradient id="sky" x2=".9" y2="1"><stop stop-color="#203a55"/><stop offset=".48" stop-color="#77949e"/><stop offset="1" stop-color="#e0bdaa"/></linearGradient>
+ <linearGradient id="sea" x2="0" y2="1"><stop stop-color="#b4c6c6"/><stop offset=".35" stop-color="#628d99"/><stop offset="1" stop-color="#203e58"/></linearGradient>
+ <linearGradient id="peak" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#637f8d"/><stop offset="1" stop-color="#263f54"/></linearGradient>
+ <linearGradient id="front" x2="1" y2="1"><stop stop-color="#254a5d"/><stop offset="1" stop-color="#122b41"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#f7dcca" stop-opacity=".55"/><stop offset="1" stop-color="#f7dcca" stop-opacity="0"/></radialGradient>
+ <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".13"/></feComponentTransfer><feBlend in="SourceGraphic" mode="soft-light"/></filter>
+</defs>
+<g filter="url(#grain)"><path fill="url(#sky)" d="M0 0h1000v1000H0z"/><circle cx="680" cy="364" r="280" fill="url(#glow)"/><circle cx="674" cy="320" r="57" fill="#f7d8bc"/>
+<path d="M0 575 83 516 148 533 244 414 304 474 389 383 472 488 559 449 625 506 734 452 817 519 914 478 1000 509V1000H0Z" fill="#81999f"/>
+<path d="M0 642 128 560 231 569 325 485 393 543 491 500 579 570 685 534 813 579 924 541 1000 560V1000H0Z" fill="url(#peak)"/>
+<path fill="url(#sea)" d="M0 624q254-13 494 7t506 5v364H0Z"/>
+<path d="M0 598 70 612 151 602 211 625 344 634 264 654 179 654 110 682 0 701Z" fill="#34596b"/>
+<path d="m1000 665-106-19-81 14-90-7-67 29-118 14 68 12 80-4 95 20 87-7 132 42Z" fill="#31566a"/>
+<g fill="none" stroke="#b4d0cf" stroke-opacity=".35"><path d="M344 715h180m-289 21h385m-199 23h313m-490 35h208m-49 30h391m-505 39h411m-292 40h429m-658 59h381"/><path d="M603 645h116m-149 8h186m-202 11h128" stroke="#ead5c0" stroke-width="3"/></g>
+<path d="M0 804 82 785 171 814 228 812 277 849 364 865 276 885 222 880 137 925 57 938 0 966Z" fill="url(#front)"/>
+<path d="m1000 835-84 17-90-18-106 51-95 14-67 33-102 68h544Z" fill="#19394e"/>
+<g fill="#173448"><path d="m86 780 14-112 15 112zm14-97-24 56h48zm0 27-33 58h66z"/><path d="m944 853 12-107 15 107zm12-99-26 61h52zm0 25-35 59h70z"/></g>
+</g>
+<g fill="#eff1e8"><text x="78" y="116" font-family="Georgia,serif" font-size="22" letter-spacing="9">C L E A R   S E S S I O N S</text><text x="74" y="214" font-family="Georgia,serif" font-size="80" letter-spacing="-3">Still, in the moment.</text><text x="80" y="926" font-family="Arial,sans-serif" font-size="15" letter-spacing="5">A LITTLE SPACE. A LITTLE SOUND.</text></g>
+<circle cx="913" cy="910" r="25" fill="none" stroke="#e5ece4" stroke-opacity=".7"/><path d="M902 910h22m-11-11v22" stroke="#e5ece4"/>
+</svg>

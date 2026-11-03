@@ -24,6 +24,14 @@ else {
     if(action==='maximize'){if(window.isMaximized())window.unmaximize();else window.maximize();}
     if(action==='close')window.close();
   });
+  ipcMain.handle('clear-local-artwork',async(event,audioPath)=>{
+    if(!window || event.sender!==window.webContents)return null;
+    const {findLocalArtwork}=await import(pathToFileURL(path.join(__dirname,'artwork.mjs')).href);
+    return findLocalArtwork(audioPath);
+  });
+  ipcMain.on('clear-window-visibility-request',event=>{
+    if(window && event.sender===window.webContents)event.sender.send('clear-window-visibility',window.isVisible()&&!window.isMinimized());
+  });
   app.on('will-quit',()=>tray?.destroy());
   app.on('before-quit',event=>{
     if(quitting)return;
@@ -48,6 +56,8 @@ else {
       webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,backgroundThrottling:false},
     });
     window.setMenu(null);
+    const publishVisibility=()=>{if(window&&!window.webContents.isDestroyed())window.webContents.send('clear-window-visibility',window.isVisible()&&!window.isMinimized());};
+    for(const event of ['show','hide','minimize','restore'])window.on(event,publishVisibility);
     window.webContents.setWindowOpenHandler(({url})=>{
       if(/^https?:\/\//i.test(url))void shell.openExternal(url);
       return {action:'deny'};

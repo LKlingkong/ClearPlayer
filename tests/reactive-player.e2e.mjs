@@ -1,0 +1,71 @@
+import {_electron} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {resolve,join} from 'node:path';
+import {mkdir,mkdtemp,writeFile} from 'node:fs/promises';
+
+await mkdir('.verification',{recursive:true});await mkdir('screenshots',{recursive:true});
+const profile=await mkdtemp(resolve('.verification/reactive-profile-'));
+const directory=await mkdtemp(resolve('.verification/reactive-audio-'));
+// Real PCM: quiet -> loud -> quiet -> loud -> silence, without external media or a simulated analyser.
+const rate=22050,length=rate*12,data=Buffer.alloc(length*2),wav=Buffer.alloc(44+data.length);
+for(let i=0;i<length;i++){const time=i/rate,amplitude=time<2?.015:time<4?.5:time<6?.015:time<8?.5:0;data.writeInt16LE(Math.round(Math.sin(2*Math.PI*110*time)*amplitude*32767),i*2);}
+wav.write('RIFF');wav.writeUInt32LE(wav.length-8,4);wav.write('WAVEfmt ',8);wav.writeUInt32LE(16,16);wav.writeUInt16LE(1,20);wav.writeUInt16LE(1,22);wav.writeUInt32LE(rate,24);wav.writeUInt32LE(rate*2,28);wav.writeUInt16LE(2,32);wav.writeUInt16LE(16,34);wav.write('data',36);wav.writeUInt32LE(data.length,40);data.copy(wav,44);
+const audioPath=join(directory,'动态验证.wav');await writeFile(audioPath,wav);
+const secondPath=join(directory,'切歌验证.wav');await writeFile(secondPath,wav);
+const lyricsPath=join(directory,'动态验证.lrc');await writeFile(lyricsPath,'[00:00]<0,200>安<200,400>静的开场\n[00:02]<1800,-1800>还<2000,400>在听\n[00:04]<00:04.00>旋律<00:04.50>渐轻\n[6000,2000](6000,300,0)让(6300,500,0)音乐发光\n[00:08]I <3 music (2024)');
+const env={...process.env,CLEAR_DESKTOP_PROFILE:profile};delete env.ELECTRON_RUN_AS_NODE;
+const app=await _electron.launch({executablePath:resolve('desktop-app/澄音播放器.exe'),env,timeout:30000});
+const page=await app.firstWindow();const errors=[];page.on('pageerror',error=>errors.push(error.message));
+try{
+  await page.waitForFunction(()=>document.querySelector('input[type=file]')&&!document.querySelector('input[type=file]').disabled);
+  await page.locator('input[type=file]').first().setInputFiles([audioPath,lyricsPath]);
+  await page.getByRole('heading',{name:'动态验证',exact:true}).waitFor();
+  const cover=await page.evaluate(()=>{const canvas=document.createElement('canvas');canvas.width=320;canvas.height=160;const ctx=canvas.getContext('2d');ctx.fillStyle='#e3b569';ctx.fillRect(0,0,320,160);ctx.fillStyle='#3c5963';ctx.fillRect(65,0,190,160);return canvas.toDataURL().split(',')[1];});
+  await page.locator('input[accept=".jpg,.jpeg,.png,.webp"]').setInputFiles({name:'wide-cover.png',mimeType:'image/png',buffer:Buffer.from(cover,'base64')});
+  await page.getByRole('button',{name:'打开播放界面',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.vinyl-label img')?.naturalWidth===320);
+  const geometry=await page.locator('.vinyl-record').evaluate(record=>{
+    const label=record.querySelector('.vinyl-label'),img=label.querySelector('img');const a=label.getBoundingClientRect(),b=img.getBoundingClientRect();
+    return {labelInset:getComputedStyle(label).top,ringInset:getComputedStyle(record,'::after').top,fit:getComputedStyle(img).objectFit,gap:Math.abs(a.width-b.width)+Math.abs(a.height-b.height)};
+  });
+  assert.equal(geometry.labelInset,geometry.ringInset);assert.equal(geometry.fit,'cover');assert.ok(geometry.gap<1,'the picture fills the centre without inset gaps');
+  assert.deepEqual(await page.locator('.vinyl-player .lyric-line').allTextContents(),['安静的开场','还在听','旋律渐轻','让音乐发光','I <3 music (2024)']);
+  await page.getByRole('button',{name:'播放',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('audio').currentTime>.2);
+  const energy=()=>page.locator('.playback-atmosphere').evaluate(el=>Number(el.style.getPropertyValue('--audio-energy')));
+  const at=async(time)=>{await page.getByRole('slider',{name:'播放进度',exact:true}).fill(String(time));await page.waitForTimeout(550);return energy();};
+  const quiet=await at(.4),loud=await at(2.3);
+  assert.ok(loud>.25 && loud>quiet*3,`actual song strength must drive the visuals: quiet=${quiet}, loud=${loud}`);
+  const first=await page.locator('.reactive-particles').evaluate(canvas=>canvas.toDataURL());
+  await page.waitForTimeout(100);assert.notEqual(await page.locator('.reactive-particles').evaluate(canvas=>canvas.toDataURL()),first);
+  const silent=await at(8.4);await page.waitForTimeout(600);assert.ok(await energy()<loud*.2,`silence must settle, first release ${silent}`);
+  await at(6.2);await page.screenshot({path:'screenshots/reactive-vinyl.png'});
+  await page.getByRole('button',{name:'歌词舞台',exact:true}).click();
+  await page.waitForTimeout(150);assert.ok(await energy()>.25,'layout switches retain the same real audio analysis');
+  await page.screenshot({path:'screenshots/reactive-stage.png'});
+  await page.getByRole('button',{name:'暂停',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.vinyl-player').dataset.moving==='false');
+  const paused=await page.locator('.reactive-particles').evaluate(c=>c.toDataURL());await page.waitForTimeout(180);assert.equal(await page.locator('.reactive-particles').evaluate(c=>c.toDataURL()),paused);
+  assert.equal(await energy(),0);
+  await page.getByRole('slider',{name:'播放进度',exact:true}).fill('2.2');await page.getByRole('button',{name:'播放',exact:true}).click();
+  await page.waitForFunction(()=>Number(document.querySelector('.playback-atmosphere').style.getPropertyValue('--audio-energy'))>.25);
+  const beforeHide=await page.locator('audio').evaluate(a=>a.currentTime);await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());
+  await page.waitForFunction(()=>document.querySelector('.vinyl-player').dataset.moving==='false');assert.equal(await energy(),0);
+  await page.waitForTimeout(250);assert.ok(await page.locator('audio').evaluate(a=>a.currentTime)>beforeHide);
+  await app.evaluate(({BrowserWindow})=>{const win=BrowserWindow.getAllWindows()[0];win.show();win.focus();});
+  await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(100);assert.equal(await page.locator('.reactive-particles').isVisible(),false);assert.equal(await energy(),0);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.getByRole('button',{name:'黑胶唱片',exact:true}).click();
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setContentSize(800,600));
+  await page.waitForFunction(()=>{const row=document.querySelector('.vinyl-player .lyric-line.current')?.getBoundingClientRect(),area=document.querySelector('.vinyl-player .lyric-scroll')?.getBoundingClientRect();return row&&area&&row.top>=area.top&&row.bottom<=area.bottom;},null,{timeout:1800});
+  await page.waitForTimeout(350);
+  await page.screenshot({path:'screenshots/reactive-small.png'});
+  await page.getByRole('button',{name:'返回曲库'}).click();
+  await page.locator('input[type=file]').first().setInputFiles(secondPath);
+  await page.getByRole('button',{name:'播放 切歌验证',exact:true}).click();
+  await page.getByRole('button',{name:'打开播放界面',exact:true}).click();
+  const nextQuiet=await at(.4),nextLoud=await at(2.3);
+  assert.ok(nextLoud>.25&&nextLoud>nextQuiet*3,`switching songs reconnects live analysis: ${nextQuiet}/${nextLoud}`);
+  assert.deepEqual(errors,[]);
+  console.log(`PASS: negative karaoke tags cleaned, centre artwork filled, actual quiet/loud/silent PCM energy (${quiet.toFixed(3)}/${loud.toFixed(3)}), canvas animation, pause/hide/reduced motion without stopping audio`);
+}finally{await app.close();}

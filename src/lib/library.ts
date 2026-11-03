@@ -30,7 +30,7 @@ export async function readTrack(file: File): Promise<Track> {
     track.album = metadata.common.album || '';
     track.duration = metadata.format.duration || 0;
     const cover = metadata.common.picture?.find(picture=>/front/i.test(picture.type||'')) || metadata.common.picture?.[0];
-    if (cover) track.artwork = new Blob([new Uint8Array(cover.data)], {type:cover.format});
+    if (cover) {track.artwork = new Blob([new Uint8Array(cover.data)], {type:cover.format});track.artworkSource='embedded';}
     const lyrics = metadata.common.lyrics?.[0];
     if (lyrics?.text) track.lyrics = lyrics.text;
   } catch { /* Audio without readable tags still gets a filename fallback. */ }

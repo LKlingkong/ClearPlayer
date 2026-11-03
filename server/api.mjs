@@ -1,5 +1,6 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
+import {ArtworkService} from './artwork.mjs';
 
 const send=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
 async function body(req) {
@@ -8,7 +9,7 @@ async function body(req) {
   for await(const chunk of req){size+=chunk.length;if(size>4096)throw new Error('请求内容过大');chunks.push(chunk);}
   try {return JSON.parse(Buffer.concat(chunks).toString());} catch{throw new Error('请求内容无效');}
 }
-export function createApiHandler(service,{origins}) {
+export function createApiHandler(service,{origins,artwork=new ArtworkService()}) {
   const allowed=new Set(origins);
   return async function handler(req,res) {
     let url;
@@ -18,6 +19,20 @@ export function createApiHandler(service,{origins}) {
     if(!allowed.has(self) || (req.headers.origin && !allowed.has(req.headers.origin)) || req.headers['sec-fetch-site']==='cross-site') {send(res,403,{error:'仅允许从本机播放器访问'});return true;}
     const method=req.method;
     try {
+      if(method==='POST' && url.pathname==='/api/artwork'){
+        const metadata=await body(req),controller=new AbortController();
+        res.on('close',()=>{if(!res.writableEnded)controller.abort();});
+        const result=await artwork.search(metadata,controller.signal,{refresh:metadata.refresh===true});
+        if(metadata.review===true || !result.automatic){send(res,result.candidates.length?409:404,{error:result.candidates.length?'请选择合适的专辑封面':'没有找到匹配的专辑封面，可以手动选择图片',candidates:result.candidates,warnings:result.warnings});return true;}
+        const cover=await artwork.image(result.automatic,controller.signal);
+        res.writeHead(200,{'Content-Type':cover.type,'Content-Length':cover.bytes.length,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Artwork-Source':encodeURIComponent(cover.source)});res.end(cover.bytes);return true;
+      }
+      const artworkCandidate=/^\/api\/artwork\/candidates\/([a-f0-9]{32})$/.exec(url.pathname);
+      if(method==='GET' && artworkCandidate){
+        const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort();});
+        const cover=await artwork.image(artworkCandidate[1],controller.signal);
+        res.writeHead(200,{'Content-Type':cover.type,'Content-Length':cover.bytes.length,'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','X-Artwork-Source':encodeURIComponent(cover.source)});res.end(cover.bytes);return true;
+      }
       if(method==='GET' && url.pathname==='/api/sources') {send(res,200,{sources:service.sources()});return true;}
       if(method==='GET' && url.pathname==='/api/search') {
         const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort();});
@@ -45,6 +60,6 @@ export function createApiHandler(service,{origins}) {
         }
       }
       send(res,404,{error:'未找到这个功能'});return true;
-    } catch(error) {if(!res.headersSent&&!res.destroyed)send(res,400,{error:error.message||'操作失败，请重试'});return true;}
+    } catch(error) {if(!res.headersSent&&!res.destroyed)send(res,error.status===404?404:400,{error:error.message||'操作失败，请重试'});return true;}
   };
 }

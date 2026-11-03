@@ -13,3 +13,9 @@ The supplied LenoMusic README identifies LenoLang as its upstream and states tha
 Upstream: https://github.com/cheng8214/LenoLang
 
 Source-code licenses do not convey rights to recordings. Npm dependencies retain their respective package licenses.
+
+## OpenCC JavaScript
+
+`opencc-js` 1.4.0 (The nk2028 Project, MIT) normalizes traditional and simplified Chinese metadata for exact artwork matching. Its dictionaries include `opencc-data` under Apache-2.0. The dependency and its license files are included with the desktop distribution. Upstream: https://github.com/nk2028/opencc-js
+
+Album artwork is retrieved from Apple's public iTunes Search service, NetEase Cloud Music, QQ Music and their official image CDNs. Artwork rights remain with their owners; no retrieved album artwork or personal music library is included in the source repository or release archive.

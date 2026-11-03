@@ -1,3 +1,4 @@
+import type {ArtworkFit} from './lib/artworkGeometry';
 export type Theme = 'glass' | 'light' | 'stage';
 export type PlayMode = 'order' | 'shuffle' | 'repeat';
 export interface LyricLine { time: number | null; text: string }
@@ -10,6 +11,9 @@ export interface Track {
   album: string;
   duration: number;
   artwork?: Blob;
+  artworkSource?: 'embedded' | 'local' | 'manual' | 'online';
+  artworkProvider?: string;
+  artworkFit?: ArtworkFit;
   lyrics?: string;
   lyricFile?: string;
   favorite: boolean;

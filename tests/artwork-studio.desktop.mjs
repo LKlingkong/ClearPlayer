@@ -1,0 +1,33 @@
+import {_electron} from '@playwright/test';
+import assert from 'node:assert/strict';
+import {mkdir,mkdtemp} from 'node:fs/promises';
+import {resolve} from 'node:path';
+await mkdir('.verification',{recursive:true});
+const profile=await mkdtemp(resolve('.verification/studio-desktop-')),env={...process.env,CLEAR_DESKTOP_PROFILE:profile};delete env.ELECTRON_RUN_AS_NODE;
+const app=await _electron.launch({executablePath:resolve('desktop-app/澄音播放器.exe'),env,timeout:30000});
+const page=await app.firstWindow(),errors=[];page.on('pageerror',error=>errors.push(error.message));
+try{
+  await page.waitForFunction(()=>document.querySelector('input[type=file]')&&!document.querySelector('input[type=file]').disabled);
+  await page.locator('input[type=file]').first().setInputFiles('tests/fixtures/专辑封面.mp3');
+  await page.getByRole('heading',{name:'封面之歌',exact:true}).waitFor();
+  await page.getByRole('button',{name:'播放',exact:true}).click();
+  await page.getByRole('button',{name:'打开播放界面',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('audio').currentTime>.1);
+  const source=await page.locator('audio').getAttribute('src');
+  const first=await page.locator('.ribbon-one').evaluate(el=>getComputedStyle(el).transform);await page.waitForTimeout(180);
+  assert.notEqual(await page.locator('.ribbon-one').evaluate(el=>getComputedStyle(el).transform),first,'new colour ribbons must visibly move during playback');
+  await page.getByRole('button',{name:'封面与构图',exact:true}).click();
+  await page.getByRole('dialog',{name:'封面工作室'}).waitFor();
+  await page.getByRole('slider',{name:'封面缩放'}).fill('1.2');
+  await page.getByRole('button',{name:'保存构图',exact:true}).click();
+  await page.getByText('封面构图已保存',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'关闭封面工作室'}).click();
+  assert.equal(await page.locator('audio').getAttribute('src'),source);assert.equal(await page.locator('audio').evaluate(a=>a.paused),false);
+  assert.equal(await page.locator('.vinyl-label img').evaluate(img=>img.style.transform),'scale(1.2)');
+  await page.getByRole('button',{name:'暂停',exact:true}).click();
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.ribbon-one')).animationPlayState==='paused');
+  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.ribbon-one').evaluate(el=>getComputedStyle(el).animationName),'none');
+  await page.reload();await page.getByRole('heading',{name:'封面之歌',exact:true}).waitFor();await page.getByRole('button',{name:'打开播放界面',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.vinyl-label img')?.style.transform==='scale(1.2)');
+  assert.deepEqual(errors,[]);console.log('PASS packaged desktop: artwork studio, saved composition, continuous audio and stronger colour ribbons with pause/reduced motion');
+}finally{await app.close();}

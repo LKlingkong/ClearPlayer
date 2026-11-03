@@ -9,6 +9,10 @@ import { IconButton } from './components/IconButton';
 import { ThemePicker, themes } from './components/ThemePicker';
 import { VinylPlayer } from './components/VinylPlayer';
 import { WindowChrome } from './components/WindowChrome';
+import {localArtwork} from './lib/artwork';
+import {useArtworkDiscovery} from './hooks/useArtworkDiscovery';
+import {ArtworkManager} from './components/ArtworkManager';
+import type {ArtworkFit} from './lib/artworkGeometry';
 
 import { OnlineMusic } from './components/OnlineMusic';
 import { downloadFile } from './lib/online';
@@ -32,6 +36,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [immersive, setImmersive] = useState(false);
   const [mobileLyrics, setMobileLyrics] = useState(false);
+  const [autoArtwork,setAutoArtwork]=useState(()=>readSetting('auto-artwork',true));
+  const [artworkManagerId,setArtworkManagerId]=useState<string|null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const lyricsInput = useRef<HTMLInputElement>(null);
   const artworkInput = useRef<HTMLInputElement>(null);
@@ -50,8 +56,23 @@ export default function App() {
   const persist = useCallback((track: Track) => { void saveTrack(track).catch(() => notify('本次可以继续播放，但保存失败。请检查浏览器存储空间或隐私设置')); }, [notify]);
 
   const updateTrack = useCallback((id: string, update: Partial<Track>) => {
-    setTracks(items => items.map(t => {if(t.id !== id) return t; const next = {...t, ...update}; persist(next); return next;}));
+    const next=tracksRef.current.map(t=>{if(t.id!==id)return t;const changed={...t,...update};persist(changed);return changed;});
+    tracksRef.current=next;setTracks(next);
   }, [persist]);
+  const applyDiscoveredArtwork=useCallback(async(id:string,artwork:Blob,provider:string,replace=false)=>{
+    const current=tracksRef.current.find(track=>track.id===id);
+    if(!current || (current.artwork&&!replace))return false;
+    const changed:Track={...current,artwork,artworkSource:'online',artworkProvider:provider,artworkFit:undefined};
+    const next=tracksRef.current.map(track=>track.id===id?changed:track);tracksRef.current=next;setTracks(next);
+    try{await saveTrack(changed);}catch{notify('封面已显示，但保存失败，请检查存储空间');throw new Error('封面没有保存成功，请检查存储空间后重试');}return true;
+  },[notify]);
+  const saveArtworkFit=useCallback(async(id:string,artworkFit:ArtworkFit)=>{
+    const current=tracksRef.current.find(track=>track.id===id);if(!current)throw new Error('这首歌已被移除');
+    const changed={...current,artworkFit},next=tracksRef.current.map(track=>track.id===id?changed:track);tracksRef.current=next;setTracks(next);await saveTrack(changed);
+  },[]);
+  const getTrack=useCallback((id:string)=>tracksRef.current.find(track=>track.id===id),[]);
+  const artworkDiscovery=useArtworkDiscovery(player.track,autoArtwork,applyDiscoveredArtwork,getTrack);
+  const changeAutoArtwork=(value:boolean)=>{setAutoArtwork(value);writeSetting('auto-artwork',value);};
   const toggleFavorite = (track: Track) => updateTrack(track.id, {favorite: !track.favorite});
   const chooseTrack = (track: Track) => player.select(track.id);
 
@@ -73,7 +94,7 @@ export default function App() {
         for (const file of lyricFiles) lyrics.set(fileStem(file.name), {text: await readLyricFile(file), name: file.name});
         const imported: Track[] = [];
         for (const file of audioFiles) {
-          try { imported.push(await readTrack(file)); }
+          try {const track=await readTrack(file);if(!track.artwork){track.artwork=await localArtwork(track,files);if(track.artwork)track.artworkSource='local';}imported.push(track);}
           catch { notify(`无法读取 ${file.name}，请尝试其他音频文件`); }
         }
         const latestTracks = tracksRef.current;
@@ -83,6 +104,7 @@ export default function App() {
         for (const incoming of imported) {
           const existing = merged.find(t => t.id === incoming.id);
           if (!existing) {merged.push(incoming); added++;}
+          else if(!existing.artwork && incoming.artwork){const index=merged.indexOf(existing);merged[index]={...existing,artwork:incoming.artwork,artworkSource:incoming.artworkSource};}
         }
         for (let i = 0; i < merged.length; i++) {
           const key = fileStem(merged[i].file.name); const lyric = lyrics.get(key);
@@ -125,7 +147,7 @@ export default function App() {
         catch {warning = '音频已加入曲库，歌词读取失败。可以使用保存歌词后单独导入';}
       }
       const existing = tracksRef.current.find(track => track.id === incoming.id);
-      if (existing) {incoming.favorite = existing.favorite; incoming.addedAt = existing.addedAt; incoming.lastPlayed = existing.lastPlayed; incoming.artwork = existing.artwork || incoming.artwork;}
+      if (existing) {incoming.favorite = existing.favorite; incoming.addedAt = existing.addedAt; incoming.lastPlayed = existing.lastPlayed; incoming.artworkSource=existing.artwork?existing.artworkSource:incoming.artworkSource;incoming.artworkProvider=existing.artwork?existing.artworkProvider:incoming.artworkProvider;incoming.artworkFit=existing.artwork?existing.artworkFit:incoming.artworkFit;incoming.artwork = existing.artwork || incoming.artwork;}
       if (wasRemoved()) throw removedError();
       try {await saveDownloadedTrack(incoming, job.id);}
       catch {throw new Error('加入曲库未保存成功，请检查浏览器存储空间后重试；下载文件仍然保留');}
@@ -134,7 +156,7 @@ export default function App() {
         throw removedError();
       }
       const latest = tracksRef.current;
-      const next = latest.some(track => track.id === incoming.id) ? latest.map(track => track.id === incoming.id ? {...incoming, favorite:track.favorite, lastPlayed:track.lastPlayed, artwork:track.artwork || incoming.artwork} : track) : [...latest, incoming];
+      const next = latest.some(track => track.id === incoming.id) ? latest.map(track => track.id === incoming.id ? {...incoming, favorite:track.favorite, lastPlayed:track.lastPlayed, artwork:track.artwork || incoming.artwork,artworkSource:track.artwork?track.artworkSource:incoming.artworkSource,artworkProvider:track.artwork?track.artworkProvider:incoming.artworkProvider,artworkFit:track.artwork?track.artworkFit:incoming.artworkFit} : track) : [...latest, incoming];
       tracksRef.current = next; setTracks(next);
       notify(`「${incoming.title}」已加入曲库${warning ? '，歌词可稍后导入' : ''}`);
       return warning;
@@ -143,13 +165,13 @@ export default function App() {
 
   const remove = (track: Track) => {
     removalVersions.current.set(track.id, (removalVersions.current.get(track.id) || 0) + 1);
-    setTracks(items => items.filter(t => t.id !== track.id));
+    const remaining=tracksRef.current.filter(t=>t.id!==track.id);tracksRef.current=remaining;setTracks(remaining);
     void deleteTrack(track.id).catch(() => notify('本次已移除，但保存失败，刷新后可能重新出现'));
     notify(`已从曲库移除「${track.title}」`);
   };
   const openImport = () => fileInput.current?.click();
   const openLyrics = () => { if (!player.track) {notify('先导入音乐，再为它添加歌词'); openImport();} else lyricsInput.current?.click(); };
-  const openArtwork = () => {if(player.track){artworkTarget.current=player.track.id;artworkInput.current?.click();}};
+  const openArtwork = () => {if(player.track)setArtworkManagerId(player.track.id);};
   const setArtwork = async(file?:File) => {
     const id=artworkTarget.current || player.currentId;
     if(!file || !id)return;
@@ -157,16 +179,16 @@ export default function App() {
       if(!/\.(jpe?g|png|webp)$/i.test(file.name) || file.size>20*1024*1024)throw new Error('请选择 20 MB 以内的 JPG、PNG 或 WEBP 图片');
       const bitmap=await createImageBitmap(file);bitmap.close();
       if(!tracksRef.current.some(track=>track.id===id))return;
-      updateTrack(id,{artwork:file});notify('专辑封面已更新');
+      updateTrack(id,{artwork:file,artworkSource:'manual',artworkProvider:undefined,artworkFit:undefined});notify('专辑封面已更新');
     }catch(error){notify(error instanceof Error ? error.message : '这张图片无法读取，请换一张图片');}
     finally{artworkTarget.current=null;}
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {if(themeOpen) return; if(!queueOpen && !settingsOpen && section === 'playing') setSection('all'); setQueueOpen(false); setSettingsOpen(false); setSidebarOpen(false); setImmersive(false); return;}
+      if (e.key === 'Escape') {if(themeOpen || artworkManagerId) return; if(!queueOpen && !settingsOpen && section === 'playing') setSection('all'); setQueueOpen(false); setSettingsOpen(false); setSidebarOpen(false); setImmersive(false); return;}
       const target = e.target as HTMLElement;
-      if (target.closest('input, textarea, select, button, dialog') || e.ctrlKey || e.metaKey || e.altKey || themeOpen) return;
+      if (target.closest('input, textarea, select, button, dialog') || e.ctrlKey || e.metaKey || e.altKey || themeOpen || artworkManagerId) return;
       if (e.code === 'Space') {e.preventDefault(); player.toggle();}
       if (e.key === 'ArrowRight') {e.preventDefault(); player.seek(player.time + 5);}
       if (e.key === 'ArrowLeft') {e.preventDefault(); player.seek(player.time - 5);}
@@ -174,7 +196,7 @@ export default function App() {
       if (e.key === 'ArrowDown') {e.preventDefault(); player.setVolume(player.volume - .05);}
     };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
-  }, [player, themeOpen, queueOpen, settingsOpen, section]);
+  }, [player, themeOpen, queueOpen, settingsOpen, section,artworkManagerId]);
 
   const filtered = useMemo(() => {
     let items = tracks.filter(t => (section !== 'favorites' || t.favorite) && (section !== 'recent' || t.lastPlayed));
@@ -183,6 +205,7 @@ export default function App() {
     return items.filter(t => `${t.title} ${t.artist} ${t.album}`.toLowerCase().includes(query));
   }, [tracks, section, search]);
   const themeName = themes.find(t => t.id === theme)?.name;
+  const artworkManagerTrack=tracks.find(track=>track.id===artworkManagerId);
   const duration = player.duration || player.track?.duration || 0;
   const chooseSection = (next: Section) => {setSection(next); setSidebarOpen(false); setImmersive(false); if(next === 'all') setSearch('');};
   const openPlayback = () => {setSection('playing'); setSidebarOpen(false); setImmersive(false);};
@@ -194,7 +217,7 @@ export default function App() {
     <WindowChrome/>
     {player.track?.artwork && <div className="space-atmosphere" aria-hidden="true"><Artwork blob={player.track.artwork}/></div>}
     <audio ref={player.audioRef} preload="metadata" onTimeUpdate={e => player.setTime(e.currentTarget.currentTime)} onDurationChange={e => player.setDuration(Number.isFinite(e.currentTarget.duration) ? e.currentTarget.duration : 0)} onPlay={() => {player.setPlaying(true); if(player.currentId) updateTrack(player.currentId, {lastPlayed:Date.now()});}} onPause={() => player.setPlaying(false)} onEnded={() => player.next(true)} onError={() => {player.setPlaying(false); notify('浏览器无法解码这份音频。文件仍已保存，可以保存音频后使用其他播放器');}}/>
-    <input ref={fileInput} type="file" accept=".mp3,.flac,.m4a,.ogg,.wav,.lrc,.txt" multiple hidden disabled={busy || !loaded} onChange={e => {void importFiles(Array.from(e.target.files || [])); e.target.value = '';}}/>
+    <input ref={fileInput} type="file" accept=".mp3,.flac,.m4a,.ogg,.wav,.lrc,.txt,.jpg,.jpeg,.png,.webp" multiple hidden disabled={busy || !loaded} onChange={e => {void importFiles(Array.from(e.target.files || [])); e.target.value = '';}}/>
     <input ref={lyricsInput} type="file" accept=".lrc,.txt" hidden disabled={busy || !loaded} onChange={e => {void importFiles(Array.from(e.target.files || [])); e.target.value = '';}}/>
     <input ref={artworkInput} type="file" accept=".jpg,.jpeg,.png,.webp" hidden onChange={e=>{void setArtwork(e.target.files?.[0]);e.target.value='';}}/>
 
@@ -213,7 +236,7 @@ export default function App() {
     </aside>
 
     <main className="main-content">
-      <VinylPlayer visible={section === 'playing'} track={player.track} playing={player.playing} time={player.time} focused={immersive} onBack={() => chooseSection('all')} onTheme={() => setThemeOpen(true)} onFavorite={() => player.track && toggleFavorite(player.track)} onSeek={player.seek} onImport={openLyrics} onFocus={() => setImmersive(!immersive)} onArtwork={openArtwork}/>
+      <VinylPlayer audioRef={player.audioRef} visible={section === 'playing'} track={player.track} playing={player.playing} time={player.time} focused={immersive} onBack={() => chooseSection('all')} onTheme={() => setThemeOpen(true)} onFavorite={() => player.track && toggleFavorite(player.track)} onSeek={player.seek} onImport={openLyrics} onFocus={() => setImmersive(!immersive)} onArtwork={openArtwork} artworkStatus={artworkDiscovery.status} autoArtwork={autoArtwork} onFindArtwork={artworkDiscovery.retry}/>
       <header className="topbar"><div className="breadcrumb"><IconButton label="打开导航" className="mobile-menu" onClick={() => setSidebarOpen(true)}><Menu size={20}/></IconButton><span>音乐空间</span><ChevronRight size={12}/><strong>{section === 'online' ? '在线找歌' : section === 'favorites' ? '我的喜欢' : section === 'recent' ? '最近播放' : '本地音乐'}</strong></div><div className="topbar-actions">{section !== 'online' && <label className="search-box"><Search size={16}/><input placeholder="搜索音乐、歌手" value={search} onChange={e => setSearch(e.target.value)}/><kbd>⌕</kbd></label>}<IconButton label="外观预设" onClick={() => setThemeOpen(true)}><Palette size={18}/></IconButton><span className="topbar-rule"/><span className="avatar">C<span/></span></div></header>
       <div className="page-content">
         <OnlineMusic visible={section === 'online'} ready={loaded} onImport={importDownloaded}/>
@@ -228,7 +251,7 @@ export default function App() {
           </section>
         </div>
 
-        <section className="library-section" aria-label="本地曲库"><div className="library-heading"><div><h2>{section === 'favorites' ? '我的喜欢' : section === 'recent' ? '最近播放' : '我的曲库'}<span>{filtered.length} 首音乐</span></h2><p>{section === 'all' ? '收藏每一个让你按下播放的瞬间' : '旋律会记得，你喜欢的样子'}</p></div><button className="text-button" onClick={openImport} disabled={busy || !loaded}><FolderOpen size={15}/><span>添加本地文件</span></button></div>
+        <section className="library-section" aria-label="本地曲库"><div className="library-heading"><div><h2>{section === 'favorites' ? '我的喜欢' : section === 'recent' ? '最近播放' : '我的曲库'}<span>{filtered.length} 首音乐</span></h2><p>{section === 'all' ? '收藏每一个让你按下播放的瞬间' : '旋律会记得，你喜欢的样子'}</p></div><div className="library-artwork-actions"><button className="text-button" disabled={!tracks.length} onClick={()=>setArtworkManagerId(player.currentId||tracks[0].id)}><Sparkles size={14}/>补齐封面</button><button className="text-button" onClick={openImport} disabled={busy || !loaded}><FolderOpen size={15}/><span>添加本地文件</span></button></div></div>
           {filtered.length ? <div className="track-list"><div className="track-table-head"><span>#</span><span>歌曲 / 歌手</span><span>专辑</span><span>时长</span><span/></div>{filtered.map((track, i) => <div className={`track-row ${track.id === player.currentId ? 'current-track' : ''}`} key={track.id}><button className="track-play" aria-label={`播放 ${track.title}`} onClick={() => chooseTrack(track)}>{track.id === player.currentId && player.playing ? <span className="equalizer animated"><i/><i/><i/></span> : <><span className="track-number">{String(i + 1).padStart(2, '0')}</span><Play className="row-play-icon" size={14} fill="currentColor"/></>}</button><button className="track-title" onClick={() => chooseTrack(track)}><Artwork blob={track.artwork}/><span><strong>{track.title}</strong><small>{track.artist}{track.lyrics && <span className="has-lyric-tag">词</span>}</small></span></button><span className="track-album">{track.album || '本地音乐'}</span><span className="track-duration">{formatTime(track.duration)}</span><div className="track-actions"><IconButton label={`${track.favorite ? '取消收藏' : '收藏'} ${track.title}`} active={track.favorite} onClick={() => toggleFavorite(track)}><Heart size={15} fill={track.favorite ? 'currentColor' : 'none'}/></IconButton><IconButton label={`移除 ${track.title}`} onClick={() => remove(track)}><X size={15}/></IconButton></div></div>)}</div> : search || section !== 'all' ? <div className="empty-results"><Search size={22}/><p>{search ? '没有找到这首音乐，换个关键词试试' : section === 'favorites' ? '点亮歌曲旁的爱心，把喜欢收藏在这里' : '播放一首音乐，你的聆听足迹会留在这里'}</p></div> : <button className="import-dropzone" onClick={openImport} disabled={busy || !loaded}><span className="upload-icon">{busy ? <LoaderCircle size={23} className="spin"/> : <ArrowDownToLine size={23}/>}</span><div><h3>{loaded ? '把喜欢的声音，留在这里。' : '正在打开你的音乐空间…'}</h3><p>拖入音乐与歌词，或<span>选择本地文件<ArrowUpRight size={12}/></span></p></div><span className="file-types">MP3 / FLAC / M4A<span>＋</span>LRC / TXT</span></button>}
           <div className="library-foot"><span><CheckCircle2 size={12}/>纯本地播放 · 音乐不会被上传</span><span>好音乐，值得用心聆听。</span></div>
         </section>
@@ -241,8 +264,10 @@ export default function App() {
       <div className="player-extras"><div className="volume-control"><IconButton label={player.muted ? '取消静音' : '静音'} onClick={() => player.setMuted(!player.muted)}>{player.muted || !player.volume ? <VolumeX size={19}/> : player.volume < .5 ? <Volume1 size={19}/> : <Volume2 size={19}/>}</IconButton><input aria-label="音量" type="range" min="0" max="1" step="0.01" value={player.muted ? 0 : player.volume} onChange={e => player.setVolume(Number(e.target.value))} style={{'--range-progress': `${player.muted ? 0 : player.volume * 100}%`} as React.CSSProperties}/></div><span className="extras-divider"/><IconButton label="播放设置" active={settingsOpen} onClick={() => {setSettingsOpen(!settingsOpen); setQueueOpen(false);}}><SlidersHorizontal size={17}/></IconButton><IconButton label="播放队列" active={queueOpen} onClick={() => {setQueueOpen(!queueOpen); setSettingsOpen(false);}}><ListMusic size={20}/></IconButton><span className="queue-count">{tracks.length}</span></div>
     </footer>
 
-    {settingsOpen && <section className="queue-panel playback-settings" aria-label="播放设置面板"><div className="panel-heading"><h2>播放设置</h2><IconButton label="关闭播放设置" onClick={() => setSettingsOpen(false)}><X size={18}/></IconButton></div><div className="settings-body"><span className="settings-label">播放模式</span><div className="mode-options">{(['order','shuffle','repeat'] as const).map(mode => <button key={mode} aria-pressed={mode === player.mode} className={mode === player.mode ? 'selected' : ''} onClick={() => player.setMode(mode)}>{mode === 'order' ? <ListMusic size={14}/> : mode === 'shuffle' ? <Shuffle size={14}/> : <Repeat1 size={14}/>} {modeLabels[mode]}</button>)}</div><div className="settings-volume"><IconButton label={player.muted ? '播放设置取消静音' : '播放设置静音'} onClick={() => player.setMuted(!player.muted)}>{player.muted || !player.volume ? <VolumeX size={18}/> : <Volume2 size={18}/>}</IconButton><input aria-label="设置音量" type="range" min="0" max="1" step="0.01" value={player.muted ? 0 : player.volume} onChange={e => player.setVolume(Number(e.target.value))} style={{'--range-progress': `${player.muted ? 0 : player.volume * 100}%`} as React.CSSProperties}/><span>{Math.round((player.muted ? 0 : player.volume) * 100)}%</span></div></div></section>}
+    {settingsOpen && <section className="queue-panel playback-settings" aria-label="播放设置面板"><div className="panel-heading"><h2>播放设置</h2><IconButton label="关闭播放设置" onClick={() => setSettingsOpen(false)}><X size={18}/></IconButton></div><div className="settings-body"><span className="settings-label">播放模式</span><div className="mode-options">{(['order','shuffle','repeat'] as const).map(mode => <button key={mode} aria-pressed={mode === player.mode} className={mode === player.mode ? 'selected' : ''} onClick={() => player.setMode(mode)}>{mode === 'order' ? <ListMusic size={14}/> : mode === 'shuffle' ? <Shuffle size={14}/> : <Repeat1 size={14}/>} {modeLabels[mode]}</button>)}</div><div className="settings-volume"><IconButton label={player.muted ? '播放设置取消静音' : '播放设置静音'} onClick={() => player.setMuted(!player.muted)}>{player.muted || !player.volume ? <VolumeX size={18}/> : <Volume2 size={18}/>}</IconButton><input aria-label="设置音量" type="range" min="0" max="1" step="0.01" value={player.muted ? 0 : player.volume} onChange={e => player.setVolume(Number(e.target.value))} style={{'--range-progress': `${player.muted ? 0 : player.volume * 100}%`} as React.CSSProperties}/><span>{Math.round((player.muted ? 0 : player.volume) * 100)}%</span></div><div className="artwork-setting"><label><span>自动联网补全封面</span><input type="checkbox" checked={autoArtwork} onChange={e=>changeAutoArtwork(e.target.checked)}/></label><p>优先使用本地封面。缺少时从 Apple、网易云、QQ 音乐查找，不上传音频，版本不确定时由你选图。</p></div></div></section>}
     {queueOpen && <section className="queue-panel" aria-label="播放队列"><div className="panel-heading"><h2>播放队列 <small>{tracks.length}</small></h2><IconButton label="关闭播放队列" onClick={() => setQueueOpen(false)}><X size={18}/></IconButton></div>{tracks.length ? <div className="queue-list">{tracks.map((track, i) => <button key={track.id} className={track.id === player.currentId ? 'queue-current' : ''} onClick={() => chooseTrack(track)}><span>{String(i+1).padStart(2,'0')}</span><Artwork blob={track.artwork}/><div><strong>{track.title}</strong><small>{track.artist}</small></div>{track.id === player.currentId && <AudioLines size={16}/>}</button>)}</div> : <div className="queue-empty"><Music2 size={30}/><p>第一首音乐，等你来添加</p><button className="primary-button" onClick={openImport}><Plus size={15}/>导入音乐</button></div>}<div className="queue-footer">{modeLabels[player.mode]}<span>共 {tracks.length} 首</span></div></section>}
+    {artworkManagerTrack&&<ArtworkManager track={artworkManagerTrack} tracks={tracks} state={artworkDiscovery.states[artworkManagerTrack.id]} batch={artworkDiscovery.batch} onClose={()=>setArtworkManagerId(null)} onTarget={setArtworkManagerId} onImport={()=>{artworkTarget.current=artworkManagerTrack.id;artworkInput.current?.click();}} onFit={fit=>saveArtworkFit(artworkManagerTrack.id,fit)} onSearch={query=>artworkDiscovery.search(query,{refresh:true,review:true})} onChoose={candidate=>artworkDiscovery.choose(artworkManagerTrack.id,candidate)} onBatch={()=>artworkDiscovery.startBatch(tracksRef.current)} onStop={artworkDiscovery.cancelBatch}/>}
+    {artworkDiscovery.batch.running&&!artworkManagerTrack&&<button className="artwork-batch-notice" onClick={()=>setArtworkManagerId(player.currentId||tracks[0]?.id||null)}><LoaderCircle size={13} className="spin"/>封面补齐 {artworkDiscovery.batch.done} / {artworkDiscovery.batch.total}<span>查看进度</span></button>}
     {themeOpen && <ThemePicker theme={theme} onChange={setTheme} onClose={() => setThemeOpen(false)}/>}
     {toast && <div className="toast" role="status"><Check size={16}/><span>{toast}</span><button onClick={() => setToast('')} aria-label="关闭提示"><X size={14}/></button></div>}
     {dragging && <div className="drag-overlay"><div><Upload size={44} strokeWidth={1.3}/><h2>松开，让音乐进来。</h2><p>MP3 / FLAC / M4A / OGG / WAV · LRC / TXT 歌词</p></div></div>}

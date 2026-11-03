@@ -43,3 +43,14 @@ test('无效和负数时间正确兜底', () => {
 test('UTF-8 歌词正常读取', async () => {
   assert.equal(await readLyricFile(new File(['风吹过'], 'test.lrc')), '风吹过');
 });
+
+test('逐字时间标记不出现在歌词正文，包含用户报告的负时长标记',()=>{
+  assert.deepEqual(parseLyrics('[00:01.80]<1800,-1800>还<1800,300>在<2100,400>听\n[00:05.00]<5000,200,0>你<5200,300,0>好'),{synced:true,lines:[{time:1.8,text:'还在听'},{time:5,text:'你好'}]});
+});
+test('增强 LRC 与毫秒逐字歌词保留行同步并清除逐字时间',()=>{
+  assert.deepEqual(parseLyrics('[00:01.00]<00:01.00>你<00:01.50>好<00:02.00>\n[3000,2000](3000,500,0)风(3500,500,0)吹过'),{synced:true,lines:[{time:1,text:'你好'},{time:3,text:'风吹过'}]});
+});
+test('歌词清洗保留普通尖括号、数字和歌词中的括号文字',()=>{
+  assert.deepEqual(parseLyrics('[00:01]I <3 you <again> (2024)\n[00:02]还<1800,-1800>在'),{synced:true,lines:[{time:1,text:'I <3 you <again> (2024)'},{time:2,text:'还在'}]});
+  assert.deepEqual(parseLyrics('<1800,-1800>还在这里\n我喜欢 (live) 的声音'),{synced:false,lines:[{time:null,text:'还在这里'},{time:null,text:'我喜欢 (live) 的声音'}]});
+});

@@ -1,19 +1,30 @@
 import type { Lyrics, LyricLine } from '../types';
+function lyricText(row:string,milliseconds=false):string{
+  let text=row.replace(/<\s*[+-]?\d+\s*,\s*[+-]?\d+(?:\s*,\s*[+-]?\d+)?\s*>/g,'')
+    .replace(/<\d{1,3}:\d{2}(?:[.:]\d{1,3})?>/g,'');
+  if(milliseconds)text=text.replace(/\([+-]?\d+\s*,\s*[+-]?\d+(?:\s*,\s*[+-]?\d+)?\)/g,'');
+  return text.trim();
+}
 export function parseLyrics(source: string): Lyrics {
   const rows = source.replace(/^\uFEFF/, '').split(/\r?\n/);
   const offset = Number(source.match(/\[offset:([+-]?\d+)\]/i)?.[1] || 0) / 1000;
   const lines: LyricLine[] = [];
   const plain: LyricLine[] = [];
   for (const row of rows) {
+    const milliseconds=/^\s*\[(\d+),\s*\d+\]/.exec(row);
+    if(milliseconds){
+      lines.push({time:Math.max(0,Number(milliseconds[1])/1000-offset),text:lyricText(row.slice(milliseconds[0].length),true)});
+      continue;
+    }
     const tags = [...row.matchAll(/\[(\d{1,3}):(\d{2})(?:[.:](\d{1,3}))?\]/g)];
     if (tags.length) {
-      const text = row.replace(/\[[^\]]*\]/g, '').trim();
+      const text = lyricText(row.replace(/\[[^\]]*\]/g, ''));
       for (const tag of tags) {
         if (Number(tag[2]) >= 60) continue;
         const time = Number(tag[1]) * 60 + Number(tag[2]) + Number(`0.${tag[3] || '0'}`) - offset;
         lines.push({time: Math.max(0, Math.round(time * 1000) / 1000), text});
       }
-    } else if (row.trim() && !/^\s*\[[^\]]*\]/.test(row)) plain.push({time: null, text: row.trim()});
+    } else if (row.trim() && !/^\s*\[[^\]]*\]/.test(row)) {const text=lyricText(row);if(text)plain.push({time:null,text});}
   }
   if (lines.length) return {lines: lines.sort((a,b) => a.time! - b.time!), synced: true};
   return {lines: plain, synced: false};

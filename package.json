@@ -11,14 +11,18 @@
     "start": "node server/start.mjs",
     "build": "tsc -b && vite build",
     "preview": "node server/start.mjs",
-    "test": "node --test tests/core.native.test.mjs tests/downloads.test.mjs tests/audio-format.test.mjs tests/music-api.test.mjs tests/providers-kuwo-kugou.test.mjs tests/providers-other.test.mjs",
+    "test": "node --test tests/core.native.test.mjs tests/downloads.test.mjs tests/audio-format.test.mjs tests/music-api.test.mjs tests/providers-kuwo-kugou.test.mjs tests/providers-other.test.mjs tests/artwork.test.mjs tests/audio-energy.test.mjs tests/artwork-geometry.test.mjs tests/artwork-batch.test.mjs",
+    "test:artwork": "node tests/artwork-display.browser.mjs && node tests/artwork-studio.e2e.mjs",
     "test:e2e": "node tests/player.e2e.mjs && node tests/online.e2e.mjs && node tests/player.regressions.e2e.mjs && node tests/player.edge-cases.e2e.mjs && node tests/cover-reimport.e2e.mjs",
     "desktop:package": "node desktop/build.mjs",
-    "test:desktop": "node --test tests/desktop-protocol.test.mjs && node tests/desktop.e2e.mjs && node tests/desktop-boundaryless.e2e.mjs"
+    "release:package": "npm run build && npm run desktop:package && node desktop/package-release.mjs",
+    "test:release": "node tests/release-artifact.e2e.mjs",
+    "test:desktop": "node --test tests/desktop-protocol.test.mjs && node tests/desktop.e2e.mjs && node tests/desktop-boundaryless.e2e.mjs && node tests/artwork-atmosphere.e2e.mjs && node tests/reactive-player.e2e.mjs && node tests/artwork-studio.desktop.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "music-metadata": "^11.0.0",
+    "opencc-js": "^1.4.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

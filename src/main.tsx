@@ -6,5 +6,6 @@ import './components/PlaybackSettings.css';
 import './components/PlayerExperience.css';
 import './components/LyricStage.css';
 import './components/Boundaryless.css';
+import './components/GoldenAtmosphere.css';
 if(window.clearDesktop)document.documentElement.dataset.desktop='true';
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

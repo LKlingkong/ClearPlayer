@@ -30,6 +30,8 @@ const portable=join(verification,name),appRoot=join(portable,'desktop-app/resour
 assert.equal(JSON.parse(await readFile(join(appRoot,'package.json'),'utf8')).version,version);
 assert.deepEqual(await readFile(join(appRoot,'dist/index.html')),await readFile('dist/index.html'));
 assert.deepEqual(await readFile(join(appRoot,'server/artwork.mjs')),await readFile('server/artwork.mjs'));
+assert.deepEqual(await readFile(join(appRoot,'server/discovery.mjs')),await readFile('server/discovery.mjs'));
+assert.deepEqual(await readFile(join(appRoot,'shared/music-identity.mjs')),await readFile('shared/music-identity.mjs'));
 assert.deepEqual(await readFile(join(portable,'ClearPlayer.exe')),await readFile('ClearPlayer.exe'));
 for(const file of ['LICENSE','LICENSES.chromium.html','resources/app/THIRD_PARTY_NOTICES.md','resources/app/node_modules/opencc-js/LICENSE'])assert.ok((await stat(join(portable,'desktop-app',file))).isFile());
 const executablePath=join(portable,'desktop-app/澄音播放器.exe');
@@ -44,9 +46,16 @@ try{
   await page.getByRole('button',{name:'打开播放界面',exact:true}).click();await page.getByRole('button',{name:'封面与构图',exact:true}).click();
   await page.getByRole('slider',{name:'封面缩放'}).fill('1.1');await page.getByRole('button',{name:'保存构图',exact:true}).click();await page.getByText('封面构图已保存',{exact:true}).waitFor();
   await page.getByRole('button',{name:'关闭封面工作室'}).click();assert.equal(await page.locator('audio').evaluate(a=>a.paused),false);
+  await page.getByRole('button',{name:'返回曲库',exact:true}).click();
+  assert.ok((await page.locator('.sidebar-version').innerText()).includes(version));
+  await page.getByRole('button',{name:'新建歌单',exact:true}).click();await page.getByLabel('歌单名称').fill('发布验证');await page.getByRole('button',{name:'创建歌单',exact:true}).click();
+  await page.getByRole('heading',{name:'发布验证',exact:true}).waitFor();await page.getByRole('button',{name:'添加曲库歌曲',exact:true}).click();await page.getByRole('button',{name:'添加 封面之歌',exact:true}).click();await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.discovery-row[data-status="ready"]').count(),1);assert.equal(await page.locator('audio').evaluate(a=>a.paused),false);
+  await page.getByRole('button',{name:'个人雷达',exact:true}).click();await page.getByRole('heading',{name:/今天，听见/}).waitFor();
+  await page.getByRole('button',{name:'导入歌单',exact:true}).click();await page.getByLabel('歌单分享链接').waitFor();await page.keyboard.press('Escape');
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].hide());
   const launcher=spawn(join(portable,'ClearPlayer.exe'),[],{env,stdio:'ignore',windowsHide:true});await new Promise((resolve,reject)=>{launcher.once('exit',resolve);launcher.once('error',reject);});
   await app.evaluate(async({BrowserWindow})=>{for(let i=0;i<40;i++){if(BrowserWindow.getAllWindows()[0].isVisible())return;await new Promise(resolve=>setTimeout(resolve,100));}throw Error('Portable launcher did not restore the player');});
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length),1);assert.deepEqual(errors,[]);
 }finally{await app.close();}
-console.log(extracted.stdout.trim());console.log(JSON.stringify({result:'PASS release ZIP: clean content, checksum, extracted Windows x64 startup, local import/playback, artwork studio and portable launcher',bytes:build.bytes,sha256}));
+console.log(extracted.stdout.trim());console.log(JSON.stringify({result:'PASS release ZIP: clean content, checksum, extracted Windows x64 startup, local playback, artwork studio, personal radar, playlist management, shared dependency and portable launcher',bytes:build.bytes,sha256}));

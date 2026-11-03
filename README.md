@@ -4,7 +4,7 @@ Windows 桌面音乐与歌词播放器，采用无边界界面，支持黑胶唱
 
 ## Windows 桌面版
 
-从 [v1.0.0 Release](https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.0) 下载 `ClearPlayer-v1.0.0-win-x64.zip`，完整解压后双击 `ClearPlayer.exe`。请下载 Release 附件中的 Windows 压缩包；GitHub 自动生成的 Source code 是源码包。
+从 [v1.0.1 Release](https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.1) 下载 `ClearPlayer-v1.0.1-win-x64.zip`，完整解压后双击 `ClearPlayer.exe`。请下载 Release 附件中的 Windows 压缩包；GitHub 自动生成的 Source code 是源码包。
 
 已打包版本双击 **ClearPlayer.exe**，或打开 **desktop-app/澄音播放器.exe**。无需安装 Node.js。请保留整个 `desktop-app` 文件夹，并将 `ClearPlayer.exe` 放在其同级目录。
 
@@ -48,7 +48,7 @@ npm start -- --open
 
 开发时使用 `npm run dev -- --open`。这两种启动方式都包含下载服务；只用普通静态服务器打开 dist 无法在线找歌。更新源码后重新运行 `npm run build`。无需 Python、识别模型、LenoLang 或 LenoMusic.exe。
 
-## 个人雷达与我的歌单（当前开发版）
+## 个人雷达与我的歌单
 
 左侧 **个人雷达** 每天保留一组约 30 首推荐，默认 70% 新发现、30% 曲库重听，可以调整熟悉与探索的比例、换一批、收藏、不感兴趣、保存歌单或整组下载。“我的听感”支持添加偏好标签；文件风格资料、导入歌单标签、收藏、实际收听与跳过记录共同帮助寻找候选。行为与偏好保存在本机；联网查找只传必要的歌曲资料与风格关键词，不上传音频。候选不足显示实际数量；推荐服务故障保留上次结果。
 

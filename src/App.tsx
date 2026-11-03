@@ -23,6 +23,7 @@ import {DiscoverySpace} from './components/DiscoverySpace';
 import type {SongRef} from './lib/discovery';
 import {recordingMatch,songIdentity} from '../shared/music-identity.mjs';
 import {Radio,Link2} from 'lucide-react';
+import appMetadata from '../package.json';
 
 type Section = 'all' | 'favorites' | 'recent' | 'online' | 'playing' | 'radar' | 'playlist';
 const modeLabels = {order:'顺序播放', shuffle:'随机播放', repeat:'单曲循环'};
@@ -286,7 +287,7 @@ export default function App() {
       <div className="sidebar-spacer"/>
       <div className="local-note"><span className="note-icon"><Headphones size={21}/></span><h3>只属于你的音乐。</h3><p>找到喜欢的歌<br/>下载，留给每个此刻。</p><span className="local-status"><i/>文件仅保存在本机</span></div>
       <button className="appearance-link" onClick={() => setThemeOpen(true)}><Palette size={17}/><div>外观与氛围<small>{themeName}</small></div><ChevronRight size={14}/></button>
-      <div className="sidebar-version">CLEAR PLAYER<span>V 1.0</span></div>
+      <div className="sidebar-version">CLEAR PLAYER<span>V {appMetadata.version}</span></div>
     </aside>
 
     <main className="main-content">

@@ -1,15 +1,16 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import {ArtworkService} from './artwork.mjs';
+import {DiscoveryService} from './discovery.mjs';
 
 const send=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
-async function body(req) {
+async function body(req,max=4096) {
   if(!String(req.headers['content-type']||'').startsWith('application/json')) throw new Error('请求格式无效');
   const chunks=[];let size=0;
-  for await(const chunk of req){size+=chunk.length;if(size>4096)throw new Error('请求内容过大');chunks.push(chunk);}
+  for await(const chunk of req){size+=chunk.length;if(size>max)throw new Error('请求内容过大');chunks.push(chunk);}
   try {return JSON.parse(Buffer.concat(chunks).toString());} catch{throw new Error('请求内容无效');}
 }
-export function createApiHandler(service,{origins,artwork=new ArtworkService()}) {
+export function createApiHandler(service,{origins,artwork=new ArtworkService(),discovery=new DiscoveryService()}) {
   const allowed=new Set(origins);
   return async function handler(req,res) {
     let url;
@@ -19,6 +20,20 @@ export function createApiHandler(service,{origins,artwork=new ArtworkService()})
     if(!allowed.has(self) || (req.headers.origin && !allowed.has(req.headers.origin)) || req.headers['sec-fetch-site']==='cross-site') {send(res,403,{error:'仅允许从本机播放器访问'});return true;}
     const method=req.method;
     try {
+      if(method==='GET'&&url.pathname==='/api/discovery/cover'){
+        const controller=new AbortController();res.on('close',()=>{if(!res.writableEnded)controller.abort();});
+        const cover=await artwork.imageFromUrl(url.searchParams.get('url'),controller.signal);
+        res.writeHead(200,{'Content-Type':cover.type,'Content-Length':cover.bytes.length,'Cache-Control':'private, max-age=1800','X-Content-Type-Options':'nosniff'});res.end(cover.bytes);return true;
+      }
+      if(method==='POST'&&['/api/playlists/preview','/api/radar/candidates','/api/songs/prepare'].includes(url.pathname)){
+        const data=await body(req,16384),controller=new AbortController();
+        res.on('close',()=>{if(!res.writableEnded)controller.abort();});
+        const signal=AbortSignal.any([controller.signal,AbortSignal.timeout(url.pathname==='/api/playlists/preview'?60000:23000)]);
+        if(url.pathname==='/api/playlists/preview')send(res,200,await discovery.playlist(data.input,signal));
+        else if(url.pathname==='/api/radar/candidates')send(res,200,await discovery.candidates(data.seeds,data.tags,signal));
+        else send(res,202,{job:await service.prepare(data.song,signal)});
+        return true;
+      }
       if(method==='POST' && url.pathname==='/api/artwork'){
         const metadata=await body(req),controller=new AbortController();
         res.on('close',()=>{if(!res.writableEnded)controller.abort();});

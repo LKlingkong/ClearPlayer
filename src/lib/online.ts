@@ -8,7 +8,7 @@ export interface DownloadJob {
 }
 export async function api<T>(path: string, options?: RequestInit): Promise<T> {
   let response: Response;
-  try {response = await fetch(`/api${path}`, {...options, signal: AbortSignal.timeout(25000), headers:{'Content-Type':'application/json', ...options?.headers}});}
+  try {response = await fetch(`/api${path}`, {...options, signal: options?.signal || AbortSignal.timeout(25000), headers:{'Content-Type':'application/json', ...options?.headers}});}
   catch {throw new Error('无法连接本地音乐服务，请使用启动脚本打开播放器后重试');}
   let data;
   try {data = await response.json();}

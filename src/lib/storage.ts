@@ -2,10 +2,11 @@ import type { Track } from '../types';
 let database: Promise<IDBDatabase> | undefined;
 function openDatabase(): Promise<IDBDatabase> {
   if (!database) database = new Promise((resolve, reject) => {
-    const request = indexedDB.open('clear-music-library', 2);
+    const request = indexedDB.open('clear-music-library', 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains('tracks')) request.result.createObjectStore('tracks', {keyPath:'id'});
       if (!request.result.objectStoreNames.contains('downloadImports')) request.result.createObjectStore('downloadImports');
+      if (!request.result.objectStoreNames.contains('discovery')) request.result.createObjectStore('discovery');
     };
     request.onsuccess = () => {request.result.onversionchange = () => {request.result.close(); database = undefined;}; resolve(request.result);};
     request.onerror = () => {database = undefined; reject(request.error);};
@@ -71,3 +72,9 @@ export function readSetting<T>(key: string, fallback: T): T {
   } catch {return fallback;}
 }
 export function writeSetting(key: string, value: unknown): void {try {localStorage.setItem(`clear:${key}`, JSON.stringify(value));} catch { /* Playback remains available when settings storage is blocked. */ }}
+export async function loadDiscovery<T>():Promise<T|undefined>{
+ const db=await openDatabase();return new Promise((resolve,reject)=>{const request=db.transaction('discovery','readonly').objectStore('discovery').get('personal');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
+}
+export async function saveDiscovery(value:unknown):Promise<void>{
+ const db=await openDatabase();return new Promise((resolve,reject)=>{const tx=db.transaction('discovery','readwrite');tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);tx.objectStore('discovery').put(value,'personal');});
+}

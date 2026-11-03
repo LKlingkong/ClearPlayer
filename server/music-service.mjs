@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, rm, stat } from 'node:fs/promises';
 import { join, basename } from 'node:path';
 import { downloadAudio } from './downloader.mjs';
+import {recordingMatch} from '../shared/music-identity.mjs';
 
 function publicSong(song) {
   const {key,id,source,title,artist,album,duration,format}=song;
@@ -59,6 +60,24 @@ export class MusicService {
   sources(){return [...this.providers.values()].map(({id,name})=>({id,name}));}
   list(){return [...this.jobs.values()].map(publicJob).reverse();}
   get(id){const job=this.jobs.get(id);return job ? publicJob(job) : undefined;}
+  register(input){
+    if(!input||!this.providers.has(input.source)||typeof input.id!=='string'||!input.id||input.id.length>200||typeof input.title!=='string'||!input.title.trim()||input.title.length>300||typeof input.artist!=='string'||input.artist.length>300)throw new Error('歌曲信息无效，请重新读取歌单');
+    const song={id:input.id,source:input.source,title:input.title,artist:input.artist,album:String(input.album||'').slice(0,300),duration:Math.max(0,Math.min(86400,Number(input.duration)||0)),format:input.source==='qq'?'mp3':input.format||'mp3'};
+    song.key=createHash('sha256').update(`${song.source}:${song.id}`).digest('hex').slice(0,32);this.catalog.set(song.key,song);
+    return publicSong(song);
+  }
+  async prepare(song,signal){
+    const existing=[...this.jobs.values()].find(j=>recordingMatch(j.song,song)&&!['failed','cancelled'].includes(j.status));
+    if(existing)return publicJob(existing);
+    let registered;
+    if(['qq','netease'].includes(song?.source))registered=this.register(song);
+    else{
+      const {songs}=await this.search(`${String(song?.title||'')} ${String(song?.artist||'')}`,'all',8,signal);
+      registered=songs.find(s=>recordingMatch(s,song));
+      if(!registered)throw new Error('没有找到匹配的同一版本，可以稍后重试或手动选歌');
+    }
+    return this.create(registered.key,true,true);
+  }
   async search(query,source='all',limit=20,signal) {
     query=String(query||'').trim();
     if(!query || query.length>150) throw new Error('请输入 1–150 个字的歌曲或歌手');
@@ -78,7 +97,7 @@ export class MusicService {
     while(this.catalog.size>2000) this.catalog.delete(this.catalog.keys().next().value);
     return {songs,warnings};
   }
-  async create(key,wantLyrics=true) {
+  async create(key,wantLyrics=true,allowFallback=false) {
     const song=this.catalog.get(key);
     if(!song) throw new Error('搜索结果已过期，请重新搜索后下载');
     const existing=[...this.jobs.values()].find(j=>j.song.key===key && !['failed','cancelled'].includes(j.status));
@@ -88,7 +107,7 @@ export class MusicService {
       if(!oldest) throw new Error('下载任务过多，请等待当前任务完成');
       this.jobs.delete(oldest.id);
     }
-    const job={id:randomUUID(),song:structuredClone(song),wantLyrics:wantLyrics!==false,status:'queued',received:0,total:0,hasLyrics:false,createdAt:Date.now()};
+    const job={id:randomUUID(),song:structuredClone(song),allowFallback,wantLyrics:wantLyrics!==false,status:'queued',received:0,total:0,hasLyrics:false,createdAt:Date.now()};
     this.jobs.set(job.id,job);await this.persist();this.pump();return publicJob(job);
   }
   file(job,kind) {
@@ -120,17 +139,32 @@ export class MusicService {
     const provider=this.providers.get(job.song.source);
     try {
       job.status='resolving';delete job.error;delete job.lyricError;
-      const resolved=await withinBudget(bounded=>provider.resolve(job.song,{signal:bounded}),signal,45000);signal.throwIfAborted();
-      if(!resolved?.url) throw new Error('未找到可下载的完整音频，请尝试其他音源或版本');
-      job.status='downloading';
-      const result=await downloadAudio({url:resolved.url,headers:resolved.headers,dest:this.partial(job),signal,expectedDuration:job.song.duration,allowLocal:this.allowLocal,onProgress:(received,total)=>{job.received=received;job.total=total;}});
+      const original=job.song;
+      const fetchAudio=async(song,p)=>{
+        const resolved=await withinBudget(bounded=>p.resolve(song,{signal:bounded}),signal,45000);signal.throwIfAborted();
+        if(!resolved?.url)throw new Error('此音源未提供完整音频');job.status='downloading';
+        return downloadAudio({url:resolved.url,headers:resolved.headers,dest:this.partial(job),signal,expectedDuration:song.duration,allowLocal:this.allowLocal,onProgress:(received,total)=>{job.received=received;job.total=total;}});
+      };
+      let result,chosenProvider=provider;
+      try{result=await fetchAudio(job.song,provider);}
+      catch(error){
+        if(signal.aborted)throw error;
+        // Existing manual search jobs keep their original-source behavior. Imported references may fall back strictly.
+        if(!job.allowFallback)throw error;
+        job.status='resolving';const found=await this.search(`${original.title} ${original.artist}`,'all',8,signal);
+        for(const candidate of found.songs.filter(s=>s.key!==original.key&&recordingMatch(s,original)).slice(0,4)){
+          try{chosenProvider=this.providers.get(candidate.source);result=await fetchAudio(candidate,chosenProvider);job.song=this.catalog.get(candidate.key);break;}
+          catch(nextError){if(signal.aborted)throw nextError;}
+        }
+        if(!result)throw new Error('暂时没有可用的同一版本，已保留歌单位置，可稍后重试');
+      }
       signal.throwIfAborted();
       job.filename=`${safeName(job.song.title)} - ${safeName(job.song.artist)} [${job.id.slice(0,8)}].${result.format}`;
       await rename(this.partial(job),this.file(job,'audio'));
       await rm(this.partial(job)+'.json',{force:true});job.received=result.bytes;job.total=result.bytes;job.song.format=result.format;
       if(job.wantLyrics) {
         try {
-          const lyrics=await withinBudget(bounded=>provider.lyrics(job.song,{signal:bounded}),signal,12000);
+          const lyrics=await withinBudget(bounded=>chosenProvider.lyrics(job.song,{signal:bounded}),signal,12000);
           if(lyrics?.trim()) {await writeFile(this.file(job,'lyrics'),lyrics,'utf8');job.hasLyrics=true;}
           else job.lyricError='此版本暂时没有可用歌词';
         } catch(error) {job.lyricError=readableError(error);}

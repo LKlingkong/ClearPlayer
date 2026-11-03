@@ -16,7 +16,7 @@ if(!runtimeReady){
   await rename(join(output,'electron.exe'),join(output,'澄音播放器.exe'));
 }
 await mkdir(appRoot,{recursive:true});
-for(const name of ['dist','server','desktop','licenses'])await cp(join(root,name),join(appRoot,name),{recursive:true});
+for(const name of ['dist','server','shared','desktop','licenses'])await cp(join(root,name),join(appRoot,name),{recursive:true});
 for(const name of ['THIRD_PARTY_NOTICES.md'])await cp(join(root,name),join(appRoot,name));
 await writeFile(join(appRoot,'package.json'),JSON.stringify({name:'clear-desktop-player',productName:'澄音 CLEAR',version:'1.0.0',main:'desktop/main.cjs',description:'澄音本地音乐播放器'},null,2));
 const listing=spawnSync(process.execPath,[join(root,'node_modules/npm/bin/npm-cli.js'),'ls','--omit=dev','--all','--parseable'],{cwd:root,encoding:'utf8',windowsHide:true});

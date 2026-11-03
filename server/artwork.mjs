@@ -19,9 +19,9 @@ async function limitedBody(response,limit){
 }
 function imageUrl(raw,source){
   let url;try{url=new URL(raw);}catch{throw new Error('封面图片地址无效');}
-  const trusted=source==='Apple Music'?/^([a-z0-9-]+\.)+mzstatic\.com$/i.test(url.hostname):source==='网易云音乐'?/^p[1-9]\.music\.126\.net$/i.test(url.hostname):source==='QQ 音乐' && url.hostname==='y.gtimg.cn';
+  const trusted=source==='Apple Music'?/^([a-z0-9-]+\.)+mzstatic\.com$/i.test(url.hostname):source==='网易云音乐'?/^p[1-9]\.music\.126\.net$/i.test(url.hostname):source==='QQ 音乐' && ['y.gtimg.cn','qpic.y.qq.com'].includes(url.hostname);
   // NetEase's official search still emits HTTP CDN links; fetch the same host over TLS.
-  if(trusted && source==='网易云音乐' && url.protocol==='http:')url.protocol='https:';
+  if(trusted && ['网易云音乐','QQ 音乐'].includes(source) && url.protocol==='http:')url.protocol='https:';
   if(url.protocol!=='https:' || !trusted || url.port || url.username || url.password)throw new Error('封面图片来源不受支持');
   if(source==='Apple Music')url.pathname=url.pathname.replace(/\/100x100bb\.(jpg|png)$/,'/600x600bb.$1');
   url.hash='';return url.href;
@@ -165,6 +165,13 @@ export class ArtworkService{
         return value;
       }finally{this.releaseImage();}
     });
+  }
+  async imageFromUrl(raw,signal){
+    let url;try{url=new URL(raw);}catch{throw new Error('封面图片来源不受支持');}
+    const source=/^p[1-9]\.music\.126\.net$/i.test(url.hostname)?'网易云音乐':'QQ 音乐';
+    const normalized=imageUrl(raw,source),id=randomBytes(16).toString('hex');
+    this.catalog.set(id,{url:normalized,source,until:Date.now()+CATALOG_TTL});
+    try{return await this.image(id,signal);}finally{this.catalog.delete(id);}
   }
   async lookup(metadata,signal){
     const input=validate(metadata);if(unknownArtist(input.artist))return null;

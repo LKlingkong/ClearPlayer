@@ -14,7 +14,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('input[type=file]')&&!document.querySelector('input[type=file]').disabled);
   const audio=[...await readFile('tests/fixtures/微风.mp3')];
   await page.evaluate(async bytes=>{
-    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('clear-music-library',2);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('clear-music-library');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
     await new Promise((resolve,reject)=>{
       const tx=db.transaction('tracks','readwrite');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
       for(let i=1;i<=60;i++)tx.objectStore('tracks').put({id:`long-${i}`,title:`歌曲 ${String(i).padStart(2,'0')}`,artist:'曲库滚动验证',album:'完整收藏',file:new File([new Uint8Array(bytes)],`歌曲${i}.mp3`,{type:'audio/mpeg'}),duration:24,favorite:false,addedAt:i});
@@ -53,7 +53,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('.vinyl-label img')?.naturalWidth===256);
   const source=await cover.getAttribute('src');assert.ok(source.startsWith('blob:'));
   const embedded=await page.evaluate(async()=>{
-    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('clear-music-library',2);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+    const db=await new Promise((resolve,reject)=>{const r=indexedDB.open('clear-music-library');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
     const track=await new Promise(resolve=>{const r=db.transaction('tracks').objectStore('tracks').get(JSON.parse(localStorage.getItem('clear:current')));r.onsuccess=()=>resolve(r.result);});
     db.close();return [...new Uint8Array(await track.artwork.arrayBuffer())];
   });

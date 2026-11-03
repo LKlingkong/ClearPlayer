@@ -145,7 +145,7 @@ try {
   const failedImport = page.getByRole('article',{name:'下载任务 重试收藏'});
   await failedImport.getByText('尚未加入曲库',{exact:true}).waitFor();
   const persistedAfterFailure = await page.evaluate(async () => {
-    const db = await new Promise((resolve,reject) => {const request=indexedDB.open('clear-music-library',2);request.onsuccess=() => resolve(request.result);request.onerror=() => reject(request.error);});
+    const db = await new Promise((resolve,reject) => {const request=indexedDB.open('clear-music-library');request.onsuccess=() => resolve(request.result);request.onerror=() => reject(request.error);});
     const track = await new Promise(resolve => {const request=db.transaction('tracks').objectStore('tracks').get('download:job-storage');request.onsuccess=() => resolve(request.result);});
     const receipt = await new Promise(resolve => {const request=db.transaction('downloadImports').objectStore('downloadImports').get('job-storage');request.onsuccess=() => resolve(request.result);});
     db.close(); return {track:!!track,receipt:!!receipt};

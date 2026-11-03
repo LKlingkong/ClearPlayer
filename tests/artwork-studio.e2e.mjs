@@ -37,7 +37,7 @@ try{
   await page.evaluate(async bytes=>{
     const canvas=document.createElement('canvas');canvas.width=600;canvas.height=600;const c=canvas.getContext('2d');c.fillStyle='#000';c.fillRect(0,0,600,600);c.fillStyle='#467e83';c.fillRect(75,0,450,600);c.fillStyle='#d5b87c';c.fillRect(200,180,100,200);
     const artwork=await new Promise(resolve=>canvas.toBlob(resolve));
-    const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library',2);r.onsuccess=()=>resolve(r.result);});
+    const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library');r.onsuccess=()=>resolve(r.result);});
     await new Promise(resolve=>{const tx=db.transaction('tracks','readwrite');tx.oncomplete=resolve;for(const [i,title] of ['已有封面','准确匹配','待确认曲目','无法匹配'].entries())tx.objectStore('tracks').put({id:`studio-${i}`,title,artist:'测试歌手',album:'专辑',file:new File([new Uint8Array(bytes)],`${title}.mp3`,{type:'audio/mpeg'}),artwork:i===0?artwork:undefined,artworkSource:'embedded',duration:24,favorite:false,addedAt:i});});db.close();
   },audio);
   await page.reload();await page.getByRole('heading',{name:'已有封面',exact:true}).waitFor();
@@ -91,7 +91,7 @@ try{
   assert.deepEqual(errors,[]);
   const seed=async target=>{
     await target.goto(origin);await target.waitForFunction(()=>!document.querySelector('input[type=file]').disabled);
-    await target.evaluate(async bytes=>{const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library',2);r.onsuccess=()=>resolve(r.result);});await new Promise(resolve=>{const tx=db.transaction('tracks','readwrite');tx.oncomplete=resolve;tx.objectStore('tracks').put({id:'automatic',title:'准确匹配',artist:'测试歌手',album:'专辑',file:new File([new Uint8Array(bytes)],'准确匹配.mp3',{type:'audio/mpeg'}),duration:24,favorite:false,addedAt:0});});db.close();},audio);
+    await target.evaluate(async bytes=>{const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library');r.onsuccess=()=>resolve(r.result);});await new Promise(resolve=>{const tx=db.transaction('tracks','readwrite');tx.oncomplete=resolve;tx.objectStore('tracks').put({id:'automatic',title:'准确匹配',artist:'测试歌手',album:'专辑',file:new File([new Uint8Array(bytes)],'准确匹配.mp3',{type:'audio/mpeg'}),duration:24,favorite:false,addedAt:0});});db.close();},audio);
   };
   const automatic=await browser.newPage();await automatic.route('**/api/**',routeApi);await seed(automatic);await automatic.reload();
   await automatic.getByRole('heading',{name:'准确匹配',exact:true}).waitFor();await automatic.getByRole('button',{name:'打开播放界面',exact:true}).click();

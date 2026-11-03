@@ -28,6 +28,7 @@ export async function readTrack(file: File): Promise<Track> {
     track.title = metadata.common.title || track.title;
     track.artist = metadata.common.artist || track.artist;
     track.album = metadata.common.album || '';
+    track.tags = metadata.common.genre?.filter(Boolean).slice(0,12);
     track.duration = metadata.format.duration || 0;
     const cover = metadata.common.picture?.find(picture=>/front/i.test(picture.type||'')) || metadata.common.picture?.[0];
     if (cover) {track.artwork = new Blob([new Uint8Array(cover.data)], {type:cover.format});track.artworkSource='embedded';}

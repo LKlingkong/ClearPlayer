@@ -19,4 +19,7 @@ export interface Track {
   favorite: boolean;
   addedAt: number;
   lastPlayed?: number;
+  tags?: string[];
+  onlineSource?: string;
+  onlineId?: string;
 }

@@ -36,7 +36,7 @@ try{
   assert.equal(await page.evaluate(()=>window.coverLookups.length),0,'same-folder native art must be found before networking');
   const bytes=[...await readFile('tests/fixtures/微风.mp3')];
   await page.evaluate(async bytes=>{
-    const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library',2);r.onsuccess=()=>resolve(r.result);});
+    const db=await new Promise(resolve=>{const r=indexedDB.open('clear-music-library');r.onsuccess=()=>resolve(r.result);});
     await new Promise(resolve=>{const tx=db.transaction('tracks','readwrite');tx.oncomplete=resolve;for(const [id,title]of[['auto','晴天'],['race','迟来的封面'],['removed','移除中的封面']])tx.objectStore('tracks').put({id,title,artist:'周杰伦',album:'叶惠美',file:new File([new Uint8Array(bytes)],`${title}.mp3`,{type:'audio/mpeg'}),duration:24,favorite:false,addedAt:Date.now(),lyrics:'[00:00]雨后的光 落在唱片上\n[00:05]听见生活 慢慢回响\n[00:10]每一段旋律 都有温度\n[00:15]让这一刻 留在这里'});});db.close();
   },bytes);
   await page.reload();await page.getByRole('button',{name:'播放 晴天',exact:true}).click();

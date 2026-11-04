@@ -29,6 +29,7 @@ for(const entry of await readdir(source,{withFileTypes:true})){
 await cp(join(root,'dist'),join(target,'dist'),{recursive:true});
 await cp(join(root,'desktop/README.md'),join(portable,'使用说明.txt'));
 await cp(join(root,'THIRD_PARTY_NOTICES.md'),join(portable,'THIRD_PARTY_NOTICES.md'));
+await cp(join(root,'CHANGELOG.md'),join(portable,'CHANGELOG.md'));
 const zip=join(run,`${name}.zip`),literal=value=>"'"+value.replaceAll("'","''")+"'";
 const command=`$ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression

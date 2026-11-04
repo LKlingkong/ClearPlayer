@@ -31,8 +31,10 @@ assert.equal(JSON.parse(await readFile(join(appRoot,'package.json'),'utf8')).ver
 assert.deepEqual(await readFile(join(appRoot,'dist/index.html')),await readFile('dist/index.html'));
 assert.deepEqual(await readFile(join(appRoot,'server/artwork.mjs')),await readFile('server/artwork.mjs'));
 assert.deepEqual(await readFile(join(appRoot,'server/discovery.mjs')),await readFile('server/discovery.mjs'));
+assert.deepEqual(await readFile(join(appRoot,'server/radar.mjs')),await readFile('server/radar.mjs'));
 assert.deepEqual(await readFile(join(appRoot,'shared/music-identity.mjs')),await readFile('shared/music-identity.mjs'));
 assert.deepEqual(await readFile(join(portable,'ClearPlayer.exe')),await readFile('ClearPlayer.exe'));
+assert.deepEqual(await readFile(join(portable,'CHANGELOG.md')),await readFile('CHANGELOG.md'));
 for(const file of ['LICENSE','LICENSES.chromium.html','resources/app/THIRD_PARTY_NOTICES.md','resources/app/node_modules/opencc-js/LICENSE'])assert.ok((await stat(join(portable,'desktop-app',file))).isFile());
 const executablePath=join(portable,'desktop-app/澄音播放器.exe');
 const binary=await readFile(executablePath);assert.equal(binary.readUInt16LE(binary.readUInt32LE(0x3c)+4),0x8664,'runtime must be Windows x64');

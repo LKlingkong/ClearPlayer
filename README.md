@@ -2,9 +2,11 @@
 
 Windows 桌面音乐与歌词播放器，采用无边界界面，支持黑胶唱片与歌词舞台、专辑封面、本地曲库，以及雾蓝玻璃、浅色唱片室和极简舞台三种外观。也支持在线找歌、下载音频和 LRC、自动加入曲库。
 
+[更新日志](CHANGELOG.md) · [全部发行版本](https://github.com/LKlingkong/ClearPlayer/releases)
+
 ## Windows 桌面版
 
-从 [v1.0.1 Release](https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.1) 下载 `ClearPlayer-v1.0.1-win-x64.zip`，完整解压后双击 `ClearPlayer.exe`。请下载 Release 附件中的 Windows 压缩包；GitHub 自动生成的 Source code 是源码包。
+从 [v1.0.3 Release](https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.3) 下载 `ClearPlayer-v1.0.3-win-x64.zip`，完整解压后双击 `ClearPlayer.exe`。请下载 Release 附件中的 Windows 压缩包；GitHub 自动生成的 Source code 是源码包。
 
 已打包版本双击 **ClearPlayer.exe**，或打开 **desktop-app/澄音播放器.exe**。无需安装 Node.js。请保留整个 `desktop-app` 文件夹，并将 `ClearPlayer.exe` 放在其同级目录。
 

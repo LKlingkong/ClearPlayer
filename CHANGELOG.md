@@ -2,7 +2,7 @@
 
 记录澄音 CLEAR 已发布版本的主要功能、体验改进与修复。完整下载见 [Releases](https://github.com/LKlingkong/ClearPlayer/releases)。
 
-## [v1.0.3] — 2026-11-04
+## [v1.0.2] — 2026-11-04
 
 ### 修复
 
@@ -52,8 +52,7 @@
 - 在线搜索、音频与歌词下载、任务控制和完成后自动入库。
 - 增强 LRC 清理、长曲库滚动修复及完整 Windows x64 便携压缩包。
 
-版本编号从 v1.0.1 直接进入 v1.0.3，未发布 v1.0.2。
 
-[v1.0.3]: https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.3
+[v1.0.2]: https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.2
 [v1.0.1]: https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.1
 [v1.0.0]: https://github.com/LKlingkong/ClearPlayer/releases/tag/v1.0.0

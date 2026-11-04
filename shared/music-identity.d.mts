@@ -3,3 +3,4 @@ export function normalizeName(value:unknown):string;
 export function versionOf(song:SongMetadata):string;
 export function songIdentity(song:SongMetadata):string;
 export function recordingMatch(a:SongMetadata,b:SongMetadata):boolean;
+export function platformIdentity(song:{source?:string;id?:string;onlineSource?:string;onlineId?:string}):string;

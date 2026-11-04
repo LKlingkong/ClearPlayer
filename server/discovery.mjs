@@ -1,5 +1,5 @@
 import {json as remoteJson,request} from './providers/http.mjs';
-import {recordingMatch,normalizeName,songIdentity} from '../shared/music-identity.mjs';
+import {RadarRecall} from './radar.mjs';
 
 const headers={'User-Agent':'Mozilla/5.0','Referer':'https://music.163.com/'};
 const qqHeaders={...headers,Referer:'https://y.qq.com/'};
@@ -29,7 +29,7 @@ const neSong=s=>({id:String(s.id),source:'netease',title:s.name,artist:(s.ar||s.
 const qqSong=s=>({id:String(s.mid||s.songmid||s.id||s.songid)+'#M500',source:'qq',title:s.name||s.songname,artist:(s.singer||[]).map(a=>a.name).filter(Boolean).join('/'),album:s.album?.name||s.albumname||'',duration:Number(s.interval||0),format:'mp3'});
 const coverUrl=value=>{try{const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:'?u.href:undefined;}catch{return undefined;}};
 export class DiscoveryService{
- constructor({json=remoteJson,fetchRequest=request}={}){this.json=json;this.fetchRequest=fetchRequest;this.cache=new Map();}
+ constructor({json=remoteJson,fetchRequest=request,qqSearch}={}){this.json=json;this.fetchRequest=fetchRequest;this.radar=new RadarRecall({json,qqSearch});}
  async resolveInput(input,signal){
   try{return parsePlaylistInput(input);}catch(error){
    let url=inputUrl(input);
@@ -79,41 +79,5 @@ export class DiscoveryService{
   if(!complete)warnings.push(`原歌单共 ${total} 首，目前读取 ${songs.length} 首，上游可能限制未登录访问；可重试检查更新`);
   return {name:first?.dissname||'QQ 音乐歌单',cover:coverUrl(first?.logo||first?.picurl),description:first?.desc||'',tags:(first?.tags||[]).map(t=>t.name).filter(Boolean),songs,total,complete,warnings};
  }
- async candidates(seeds,tags,signal){
-  if(!Array.isArray(seeds)||seeds.length>6||!Array.isArray(tags)||tags.length>12)throw new Error('偏好参数无效');
-  const signature=JSON.stringify([seeds,tags]);const cached=this.cache.get(signature);if(cached&&Date.now()-cached.time<3600000)return cached.value;
-  const songs=[],warnings=[];let successes=0;
-  const bounded=signal?AbortSignal.any([signal,AbortSignal.timeout(18000)]):AbortSignal.timeout(18000);
-  const add=(items,reason,seed,tags=[])=>{for(const song of items)if(song.title&&song.artist)songs.push({...song,reason,seed,tags});};
-  // Seed resolution is deliberately strict; an artist-name search is not a similar-song recommendation.
-  const seedTasks=seeds.slice(0,4).map(async seed=>{
-   if(typeof seed?.title!=='string'||typeof seed?.artist!=='string')return;
-   try{
-    let id=seed.onlineSource==='netease'?String(seed.onlineId||''):seed.source==='netease'?String(seed.id):'';
-    if(!/^\d+$/.test(id)){
-     const found=await this.json(`https://music.163.com/api/search/get?s=${encodeURIComponent(`${seed.title} ${seed.artist}`.slice(0,150))}&type=1&limit=8&offset=0`,{headers,signal:bounded});
-     id=(found.result?.songs||[]).map(neSong).find(s=>recordingMatch(s,seed))?.id||'';
-    }
-    if(!id)return;
-    const d=await this.json(`https://music.163.com/api/discovery/simiSong?artistid=0&songid=${id}&limit=30`,{headers,signal:bounded});
-    if(d.code!==undefined&&d.code!==200)throw new Error('相似歌曲暂不可用');successes++;
-    add((d.songs||[]).map(neSong),`和「${seed.title}」的听感相近`,seed.title);
-   }catch(error){if(signal?.aborted)throw error;warnings.push(`「${seed.title}」的相似歌曲暂不可用`);}
-  });
-  const tagTasks=tags.filter(t=>typeof t==='string'&&t.length<40).slice(0,3).map(async tag=>{
-   try{
-    const d=await this.json(`https://music.163.com/api/playlist/list?cat=${encodeURIComponent(tag)}&order=hot&limit=2&offset=0`,{headers,signal:bounded});
-    if(d.code!==undefined&&d.code!==200)throw new Error('风格歌单暂不可用');
-    if(!(d.playlists||[]).length)successes++;
-    await Promise.all((d.playlists||[]).slice(0,2).map(async p=>{
-     const list=await this.json(`https://music.163.com/api/v6/playlist/detail?id=${String(p.id)}&n=40&s=0`,{headers,signal:bounded});if(!list.playlist)throw new Error('风格歌曲暂不可用');successes++;add((list.playlist?.tracks||[]).slice(0,35).map(neSong),`来自「${tag}」风格歌单`,undefined,[tag]);
-    }));
-   }catch(error){if(signal?.aborted)throw error;warnings.push(`「${tag}」风格候选暂不可用`);}
-  });
-  await Promise.all([...seedTasks,...tagTasks]);
-  const unique=[...new Map(songs.map(s=>[songIdentity(s),s])).values()].slice(0,250);
-  if(!unique.length)warnings.push('暂时没有找到新的候选，可以添加偏好标签、收藏更多歌曲后再试');
-  const value={songs:unique,warnings:[...new Set(warnings)],unavailable:successes===0&&warnings.some(w=>/暂不可用/.test(w))};
-  if(!value.unavailable)this.cache.set(signature,{time:Date.now(),value});if(this.cache.size>25)this.cache.delete(this.cache.keys().next().value);return value;
- }
+ async candidates(seeds,tags,signal,options){return this.radar.candidates(seeds,tags,signal,options);}
 }

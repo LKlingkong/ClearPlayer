@@ -30,7 +30,7 @@ export function createApiHandler(service,{origins,artwork=new ArtworkService(),d
         res.on('close',()=>{if(!res.writableEnded)controller.abort();});
         const signal=AbortSignal.any([controller.signal,AbortSignal.timeout(url.pathname==='/api/playlists/preview'?60000:23000)]);
         if(url.pathname==='/api/playlists/preview')send(res,200,await discovery.playlist(data.input,signal));
-        else if(url.pathname==='/api/radar/candidates')send(res,200,await discovery.candidates(data.seeds,data.tags,signal));
+        else if(url.pathname==='/api/radar/candidates')send(res,200,await discovery.candidates(data.seeds,data.tags,signal,{refresh:data.refresh===true,batch:data.batch}));
         else send(res,202,{job:await service.prepare(data.song,signal)});
         return true;
       }

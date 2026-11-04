@@ -5,13 +5,13 @@ import type {DownloadJob} from '../lib/online';
 import {loadDiscovery,saveDiscovery} from '../lib/storage';
 import {buildTaste,dayKey,initialDiscovery,mergePlaylist,rankRadar,prioritizeEntries} from '../lib/discovery';
 import type {DiscoveryState,ListeningStat,PersonalPlaylist,PlaylistEntry,PlaylistPreview,Preferences,SongRef,RadarSong} from '../lib/discovery';
-import {recordingMatch,songIdentity} from '../../shared/music-identity.mjs';
+import {recordingMatch,songIdentity,platformIdentity} from '../../shared/music-identity.mjs';
 
 export function useDiscovery({tracks,ready,onImport,notify}:{tracks:Track[];ready:boolean;onImport:(job:DownloadJob,force?:boolean)=>Promise<string|undefined>;notify:(message:string)=>void}){
  const [data,setData]=useState<DiscoveryState>(initialDiscovery),[loaded,setLoaded]=useState(false),[radarBusy,setRadarBusy]=useState(false),[connectionError,setConnectionError]=useState('');
  const ref=useRef(data),tracksRef=useRef(tracks),importRef=useRef(onImport),readyRef=useRef(ready),mounted=useRef(false),loadedRef=useRef(false),writes=useRef(Promise.resolve()),inflight=useRef(new Set<string>()),importing=useRef(new Set<string>()),resuming=useRef(new Set<string>()),radarSequence=useRef(0),pumping=useRef(false);
  tracksRef.current=tracks;importRef.current=onImport;readyRef.current=ready;
- const index=useMemo(()=>{const recordings=new Map<string,Track[]>(),platform=new Map<string,Track>();for(const t of tracks){const key=songIdentity(t);recordings.set(key,[...(recordings.get(key)||[]),t]);if(t.onlineSource&&t.onlineId)platform.set(`${t.onlineSource}:${t.onlineId}`,t);}return {recordings,platform};},[tracks]);
+ const index=useMemo(()=>{const recordings=new Map<string,Track[]>(),platform=new Map<string,Track>();for(const t of tracks){const key=songIdentity(t);recordings.set(key,[...(recordings.get(key)||[]),t]);if(platformIdentity(t))platform.set(platformIdentity(t),t);}return {recordings,platform};},[tracks]);
  const indexRef=useRef(index);indexRef.current=index;
  const priority=useRef(new Set<string>());
  const commit=useCallback((update:(current:DiscoveryState)=>DiscoveryState)=>{
@@ -25,7 +25,7 @@ export function useDiscovery({tracks,ready,onImport,notify}:{tracks:Track[];read
   ref.current=next;setData(next);loadedRef.current=true;setLoaded(true);
  }).catch(()=>{if(active)notify('无法打开歌单存储，请重新打开播放器后重试');});return()=>{active=false;mounted.current=false;loadedRef.current=false;};},[notify]);
  const patchEntry=useCallback((uid:string,patch:Partial<PlaylistEntry>)=>commit(s=>({...s,playlists:s.playlists.map(p=>p.entries.some(e=>e.uid===uid)?{...p,entries:p.entries.map(e=>e.uid===uid?{...e,...patch}:e)}:p)})),[commit]);
- const matching=useCallback((song:SongRef)=>indexRef.current.platform.get(`${song.source}:${song.id}`)||indexRef.current.recordings.get(songIdentity(song))?.find(t=>recordingMatch(t,song)),[]);
+ const matching=useCallback((song:SongRef)=>indexRef.current.platform.get(platformIdentity(song))||indexRef.current.recordings.get(songIdentity(song))?.find(t=>recordingMatch(t,song)),[]);
  const importPlaylist=useCallback((preview:PlaylistPreview)=>{
   const existing=ref.current.playlists.find(p=>p.source===preview.source&&p.sourceId===preview.sourceId);
   let playlist:PersonalPlaylist;
@@ -61,13 +61,18 @@ export function useDiscovery({tracks,ready,onImport,notify}:{tracks:Track[];read
   const current=ref.current,batch=change?(current.radar?.batch||0)+1:0,day=dayKey();
   const playlistTags=current.playlists.flatMap(p=>p.tags||[]),taste=buildTaste(tracksRef.current,current.stats,[...current.preferences.tags,...playlistTags].slice(0,12));
   let candidates:SongRef[]=[],warnings:string[]=[];
-  try{const result=await api<{songs:SongRef[];warnings:string[];unavailable?:boolean}>('/radar/candidates',{method:'POST',body:JSON.stringify({seeds:taste.seeds.map(t=>({title:t.title,artist:t.artist,album:t.album,duration:t.duration,onlineSource:t.onlineSource,onlineId:t.onlineId})),tags:taste.tags})});if(result.unavailable)throw new Error('推荐音源暂不可用，请稍后重试');candidates=result.songs;warnings=result.warnings||[];}
-  catch(error){warnings=[(error as Error).message];if(ref.current.radar?.songs.length){if(sequence===radarSequence.current){commit(s=>({...s,radar:s.radar?{...s.radar,warnings:['网络暂不可用，保留上次雷达结果',...warnings]}:undefined}));setRadarBusy(false);}return;}}
+  try{const result=await api<{songs:SongRef[];warnings:string[];unavailable?:boolean}>('/radar/candidates',{method:'POST',body:JSON.stringify({seeds:taste.seeds.map(t=>({title:t.title,artist:t.artist,album:t.album,duration:t.duration,onlineSource:t.onlineSource,onlineId:t.onlineId})),tags:taste.tags,refresh:change||!!current.radar&&!current.radar.songs.some(s=>!s.localId),batch})});if(result.unavailable)throw new Error('推荐来源暂未返回可用候选，请重新寻找新歌');candidates=result.songs;warnings=result.warnings||[];}
+  catch(error){warnings=[(error as Error).message];if(ref.current.radar?.songs.length){if(sequence===radarSequence.current){commit(s=>({...s,radar:s.radar?{...s.radar,batch,recallVersion:2,warnings:[s.radar.songs.some(t=>!t.localId)?'网络暂不可用，保留上次雷达结果':'新歌尚未就绪，保留曲库重听。可以点击“重新寻找新歌”重试',...warnings]}:undefined}));setRadarBusy(false);}return;}}
   if(sequence!==radarSequence.current||!mounted.current)return;
   const songs=rankRadar(candidates,tracksRef.current,ref.current.stats,ref.current.preferences,`${day}:${batch}`);
-  if(songs.length<30)warnings.push(`目前找到 ${songs.filter(s=>!s.localId).length} 首新歌、${songs.filter(s=>s.localId).length} 首曲库歌曲；添加偏好标签或更多收藏，可以拓展推荐`);
-  commit(s=>({...s,radar:{day,batch,songs,warnings,generatedAt:Date.now(),exploration:s.preferences.exploration}}));setRadarBusy(false);
- },[commit]);
+  const newCount=songs.filter(s=>!s.localId).length;
+  if(!newCount&&current.radar?.songs.some(s=>!s.localId)){
+   commit(s=>({...s,radar:{...current.radar!,batch,recallVersion:2,warnings:['本轮没有找到可补充的新歌，保留上次完整雷达结果；可以再换一批',...warnings]}}));setRadarBusy(false);return;
+  }
+  if(!newCount){const known=candidates.filter(s=>matching(s)).length,heard=candidates.filter(s=>!matching(s)&&ref.current.stats[songIdentity(s)]?.seconds>10).length;warnings.push(candidates.length?`本轮取得 ${candidates.length} 首相关候选，其中 ${known} 首已在曲库、${heard} 首已有聆听记录；暂未找到符合条件的新歌，可重新寻找`:'本轮未取得新歌候选，曲库重听已保留。点击“重新寻找新歌”会重新查询来源');}
+  else if(songs.length<30)warnings.push(`目前找到 ${newCount} 首新歌、${songs.filter(s=>s.localId).length} 首曲库歌曲，当前按实际可用数量展示`);
+  commit(s=>({...s,radar:{day,batch,songs,warnings,generatedAt:Date.now(),exploration:s.preferences.exploration,recallVersion:2,newCount}}));setRadarBusy(false);
+ },[commit,matching]);
  // The coordinator stays mounted across pages. At most two active entries are prepared/downloaded.
  useEffect(()=>{
   if(!loaded||!ready)return;let active=true,timer:ReturnType<typeof setTimeout>;

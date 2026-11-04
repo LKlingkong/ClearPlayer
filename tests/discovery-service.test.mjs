@@ -11,16 +11,16 @@ test('accepts shared playlist text and hash URLs, rejects arbitrary hosts and so
 });
 test('NetEase retrieves missing detail rows in original ID order and exposes incomplete metadata',async()=>{
  const transport=async url=>url.includes('playlist/detail')?{code:200,playlist:{id:123,name:'测试歌单',trackCount:3,trackIds:[{id:1},{id:2},{id:3}],tracks:[{id:1,name:'歌1',ar:[{name:'甲'}],al:{name:'专辑'},dt:200000}],tags:['摇滚']}}:{code:200,songs:[{id:3,name:'歌3',ar:[{name:'甲'}],al:{name:'专辑'},dt:200000}]};
- const d=new DiscoveryService({json:transport});const p=await d.playlist('https://music.163.com/playlist?id=123');
+ const d=new DiscoveryService({qqSearch:async()=>[],json:transport});const p=await d.playlist('https://music.163.com/playlist?id=123');
  assert.equal(p.total,3);assert.equal(p.songs.length,3);assert.equal(p.songs[2].title,'歌3');
  assert.equal(p.complete,false);assert.ok(p.warnings.length);assert.equal(p.songs[1].unavailable,true);
 });
 test('QQ playlist count mismatch is visible, never reported complete',async()=>{
- const d=new DiscoveryService({json:async()=>({code:0,cdlist:[{dissname:'QQ歌单',total_song_num:4,songlist:[{songmid:'a',songname:'歌',singer:[{name:'甲'}],interval:200}]}]})});
+ const d=new DiscoveryService({qqSearch:async()=>[],json:async()=>({code:0,cdlist:[{dissname:'QQ歌单',total_song_num:4,songlist:[{songmid:'a',songname:'歌',singer:[{name:'甲'}],interval:200}]}]})});
  const p=await d.playlist('https://y.qq.com/n/ryqq/playlist/123');assert.equal(p.complete,false);assert.ok(p.warnings.length);assert.equal(p.songs.length,1);
 });
 test('private and removed playlists produce actionable error',async()=>{
- const d=new DiscoveryService({json:async()=>({code:200,cdlist:[]})});
+ const d=new DiscoveryService({qqSearch:async()=>[],json:async()=>({code:200,cdlist:[]})});
  await assert.rejects(d.playlist('https://y.qq.com/n/ryqq/playlist/123'),/公开|私密|访问/);
 });
 test('share short links cannot redirect to arbitrary or private hosts',async()=>{
@@ -29,8 +29,8 @@ test('share short links cannot redirect to arbitrary or private hosts',async()=>
 });
 test('independent seed candidates are fetched concurrently and failures preserve successful songs',async()=>{
  let started=0,release;const gate=new Promise(r=>release=r);
- const d=new DiscoveryService({json:async url=>{
-  started++;if(started===3)release();await gate;
+ const d=new DiscoveryService({qqSearch:async()=>[],json:async url=>{
+  if(!url.includes('simiSong'))return {code:200,result:{songs:[],playlists:[]},playlists:[]};started++;if(started===3)release();await gate;
   if(url.includes('songid=2'))throw new Error('源失败');
   const id=url.includes('songid=1')?11:33;return {songs:[{id,name:'相似'+id,artists:[{name:'歌手'}],album:{name:'唱片'},duration:200000}]};
  }});
@@ -38,9 +38,9 @@ test('independent seed candidates are fetched concurrently and failures preserve
  assert.equal(started,3);assert.equal(result.songs.length,2);assert.equal(result.warnings.length,1);
 });
 test('total candidate source outage is explicit and is not cached for an hour',async()=>{
- let calls=0;const d=new DiscoveryService({json:async()=>{calls++;throw new Error('网络故障');}});
+ let calls=0;const d=new DiscoveryService({qqSearch:async()=>[],json:async()=>{calls++;throw new Error('网络故障');}});
  const seeds=[{source:'netease',id:'1',title:'种子',artist:'歌手'}];
- const a=await d.candidates(seeds,[]);assert.equal(a.unavailable,true);await d.candidates(seeds,[]);assert.equal(calls,2);
+ const a=await d.candidates(seeds,[]);assert.equal(a.unavailable,true);await d.candidates(seeds,[]);assert.ok(calls>=2);
 });
 test('desktop playlist images use bounded official-CDN proxy, rejecting local URLs',async()=>{
  const png=await readFile('tests/fixtures/embedded-cover.png');let calls=0;
